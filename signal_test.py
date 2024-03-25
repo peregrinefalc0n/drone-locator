@@ -1,4 +1,4 @@
-from libhackrf import *
+from pyhackrf2 import *
 from pylab import *     # for plotting
 import numpy as np
 
