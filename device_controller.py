@@ -2,10 +2,17 @@ import time
 import serial
 import asyncio
 import math
+import platform
 
 
 MODE = "serial"
-SERIAL_PORT = "COM5"
+
+if platform.system() == "Windows":
+    SERIAL_PORT = "COM5"
+elif platform.system() == "Linux":
+    SERIAL_PORT = "/dev/ttyUSB0"
+else:
+    raise Exception("Unsupported platform")
 
 GLOBAL_ACC = 100
 GLOBAL_SPEED = 2000
