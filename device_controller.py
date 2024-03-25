@@ -8,7 +8,7 @@ MODE = "serial"
 SERIAL_PORT = "COM5"
 
 GLOBAL_ACC = 100
-GLOBAL_SPEED = 4000
+GLOBAL_SPEED = 2000
 
 CURRENT_POSITION_1 = 0
 CURRENT_POSITION_2 = 0
@@ -52,6 +52,26 @@ class VerticalServoFutureOutOfBounds(Exception):
     def __init__(self, message):
         super().__init__(message)
         self.message = message
+
+class ServoTemperatureTooHigh(Exception):
+    """Raised if the servo temperature is too high."""
+    
+    def __init__(self, message):
+        super().__init__(message)
+        self.message = message
+
+
+#TODO turn the methods in this file to this class
+class ESP32Controller:
+    """Class for communicating with ESP32 over serial and controlling its connected servos. 
+    By default, the serial port is set to COM5, baud rate to 115200 and timeout to 1 second."""	
+
+    def __init__(self, serial_port = "COM5", baud_rate=115200, timeout=1):
+        self.serial_port = serial_port
+        self.baud_rate = baud_rate
+        self.timeout = timeout
+        self.esp32 = serial.Serial(self.serial_port, self.baud_rate, timeout=self.timeout)
+
 
 def y_future_within_bounds(location):
     return 1000 <= location <= 2072
@@ -107,7 +127,7 @@ def calculate_circular_coordinates(center_x, center_y, radius, n):
 
 
 def calculate_horizontal_distances(num_points=12, circumference=4092, start_angle=15):
-    """Calculate num_points amount of horizontal distances from point 0 all the way to 4096"""
+    """Calculate num_points amount of horizontal distances from point 0 all the way to 4096. These distances are what the servos will move to."""
     distances = []
     angle_increment = 360 / num_points
 
@@ -124,7 +144,17 @@ def collectGarbage(esp32):
     response = esp32.readline().decode().strip()
     if len(response) > 0:
         print("Garbage:", response)
-    return False
+
+
+def servosReady(esp32):
+    while True:
+        horizontal  = get_position(esp32, 1)
+        vertical    = get_position(esp32, 2)
+        if horizontal == -1 or vertical == -1:
+            print(f"Servo 1: {horizontal}, Servo 2: {vertical}. Retrying in 1 second.")
+            time.sleep(1)
+        else:
+            return True
 
 
 def center_servos():
@@ -159,6 +189,21 @@ def get_position(esp32, servo_id):
     # print(f"Servo {servo_id} is at position {location}.")
     return location
 
+def get_telemetry(esp32, servo_id) -> dict:
+    esp32.write((f"GET_TELEMETRY,{servo_id}" + "\n").encode())
+    telemetry = esp32.readline().decode().split(",")
+    #TELEMETRY,<servo_id>,<position>,<speed>,<load>,<voltage>,<temperature>,<move>,<current>
+    telemetry_data = {
+        "servo_id": telemetry[1],
+        "position": telemetry[2],
+        "speed": telemetry[3],
+        "load": telemetry[4],
+        "voltage": telemetry[5],
+        "temperature": telemetry[6],
+        "move": telemetry[7],
+        "current": telemetry[8],
+    }
+    return telemetry_data
 
 def move_to(esp32, servo_id, expected_pos):
     # safeguard for y-axis
@@ -290,46 +335,55 @@ def scan_horizontal(
     move_to_and_wait_for_complete(esp32, 2, 1024)
 
 
-def sweep_horizontal_optimal(esp32, horizontal_lines = 6):
-    #move to default position
-    #calculate y positions
+def full_sweep_optimal(esp32):
+    horizontal_lines = 6
     y_positions = calculate_vertical_movement_distances(horizontal_lines)
-    #calculate each horizontal layers path radius
-    x_radiuses = calculate_horizontal_sweepline_radii(horizontal_lines)
-
-    point_array = [12,10,8,8,6,4,1]
+    point_array = [12,10,8,6,4,3,1]
 
     start_time = time.time()
 
     for i in range(len(y_positions)):
+            #print(f"VERTICAL [{i}] Moving to y position {y_positions[i]}.")
             move_to_and_wait_for_complete(esp32, 2, y_positions[i])
 
             points = point_array[i]
-            circumference = 4096  #math.pi*2*x_radiuses[i]
-            start_angle = (15 * 1) if (i % 2 == 0) else (15 * 0)
-            if points == 1:
-                start_angle = 0
-            x_positions = calculate_horizontal_distances(points, circumference,start_angle)
-            print(x_positions)
+            #circumference = 4096  #math.pi*2*x_radiuses[i]
+            start_angle = 15 if (i % 2 == 0) else 0
+            x_positions = calculate_horizontal_distances(points, 4096, start_angle)
+            #print(x_positions)
             for x_position in x_positions if i % 2 == 0 else reversed(x_positions):
                 move_to_and_wait_for_complete(esp32, 1, x_position[1])
-                time.sleep(0.1)
-
-                #perform_scan(x_position[0], x_position[1], y_positions[i])
+                perform_scan(esp32, x_positions.index(x_position), x_position[0], x_position[1], y_positions[i])
 
     end_time = time.time()
-
     print(f"Full sweep time taken: {int(end_time - start_time)} seconds.")
-    #scan completed
-    #move to default position
 
 
+def horizontal_only_sweep(esp32, number_of_points = 12):
+    move_to_and_wait_for_complete(esp32, 2, 1024)
+    x_positions = calculate_horizontal_distances(number_of_points, 4096, 0)
+    
+    reverse = False
+    skip_first = False
 
-def perform_scan(angle, x, y):
-    print(f"Performing scan at x angle {angle} and x {x}, y {y}.")
-    for i in range(1, 4):
-        print("Scanning" + i * ".")
-        time.sleep(0.1)
+    while True:
+        for x_position in reversed(x_positions) if reverse else x_positions:
+            if skip_first:
+                skip_first = False
+                continue
+            move_to_and_wait_for_complete(esp32, 1, x_position[1])
+            perform_scan(x_positions.index(x_position), x_position[0], x_position[1], 1024)
+        reverse = not reverse
+        skip_first = True
+
+
+def perform_scan(esp32, n, angle, x, y):
+    telemetry_1 = get_telemetry(esp32, 1)
+    telemetry_2 = get_telemetry(esp32, 2)
+    print(f"[{n}]Performing scan at x angle {angle} and x {x}, y {y}. Temp1 {telemetry_1['temperature']} Temp2 {telemetry_2['temperature']}.")
+    if int(telemetry_1['temperature']) >= 50 or int(telemetry_2['temperature']) >= 50:
+        raise ServoTemperatureTooHigh("Servo temperature too high.")
+    time.sleep(0.2)
 
 
 async def communicate():
@@ -338,14 +392,18 @@ async def communicate():
         with serial.Serial(SERIAL_PORT, 115200, timeout=1) as esp32:
             while True:
                 if first_run:
-                    first_run = collectGarbage(esp32)
+                    collectGarbage(esp32)
+                    if servosReady(esp32):
+                        print("Servos ready.")
+                    first_run = False
 
-                # Reset and move to a safe forward position before doing stuff
-                move_to_and_wait_for_complete(esp32, 1, 2048)
-                move_to_and_wait_for_complete(esp32, 2, 1024)
+                     # Reset and move to a safe forward position before doing stuff
+                    move_to_and_wait_for_complete(esp32, 1, 2048)
+                    move_to_and_wait_for_complete(esp32, 2, 1024)
 
                 # do stuff here
-                sweep_horizontal_optimal(esp32)
+                full_sweep_optimal(esp32)
+                #horizontal_only_sweep(esp32, 32)
     else:
         print("Invalid mode selected. Please select either 'wifi' or 'serial'.")
 
