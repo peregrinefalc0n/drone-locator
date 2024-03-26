@@ -1,7 +1,6 @@
 from pyhackrf2 import HackRF
 import numpy as np
-import matplotlib.axes as mpl
-
+from matplotlib.pyplot import psd
 class Signal:
     """Class that represents a signal"""
     def __init__(self, start_freq, end_freq, peak_power_db, peak_freq):
@@ -32,7 +31,7 @@ class SignalProcessor:
     
     def __process(self, offset = 10) -> list:
         """Processes the samples and returns a list of signals that are above the noise floor by the given offset in dBm"""
-        pxx, freqs = mpl.Axes.psd(self.__measure(), NFFT=2048, Fs=self.hackrf.sample_rate/1e6, Fc=self.hackrf.center_freq/1e6)
+        pxx, freqs = psd(self.__measure(), NFFT=2048, Fs=self.hackrf.sample_rate/1e6, Fc=self.hackrf.center_freq/1e6)
 
         #Take the first 1000 samples to avoid the DC spike (essentially taking less than half of our samples (we had 2048 of them))
         select_count = 1000
