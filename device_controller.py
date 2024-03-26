@@ -3,7 +3,7 @@ import serial
 import asyncio
 import math
 import platform
-
+import signal_processor
 
 MODE = "serial"
 
@@ -20,6 +20,8 @@ GLOBAL_SPEED = 2000
 CURRENT_POSITION_1 = 0
 CURRENT_POSITION_2 = 0
 
+
+sp = signal_processor.SignalProcessor(id=1)
 
 # The custom command structure when interfacing with esp32 over serial (usb)
 # No returns:
@@ -387,10 +389,15 @@ def horizontal_only_sweep(esp32, number_of_points = 12):
 def perform_scan(esp32, n, angle, x, y):
     telemetry_1 = get_telemetry(esp32, 1)
     telemetry_2 = get_telemetry(esp32, 2)
+    print("=====================================")
     print(f"[{n}]Performing scan at x angle {angle} and x {x}, y {y}. Temp1 {telemetry_1['temperature']} Temp2 {telemetry_2['temperature']}.")
     if int(telemetry_1['temperature']) >= 50 or int(telemetry_2['temperature']) >= 50:
         raise ServoTemperatureTooHigh("Servo temperature too high.")
-    time.sleep(0.2)
+    signals = sp.get_signals(offset=10)
+    print("Signals found: ", len(signals))
+    for signal in signals:
+        print("Signal from", signal.start_freq, "to", signal.end_freq, "with peak power of", signal.peak_power_db, " at freq ", signal.peak_freq, end="")
+    print("=====================================")
 
 
 async def communicate():
