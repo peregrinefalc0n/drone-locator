@@ -1,5 +1,5 @@
 from pyhackrf2 import *
-from pylab import *     # for plotting
+import matplotlib.axes as mpl
 import numpy as np
 
 def mW_to_dBm(power):
@@ -15,8 +15,8 @@ def load_data_from_file(filename):
             new_pxx.append(float(power))
             new_freqs.append(float(freq))
 
-    freqs = np.array(new_freqs, dtype=float64)
-    pxx = np.array(new_pxx, dtype=float64)
+    freqs = np.array(new_freqs, dtype=np.float64)
+    pxx = np.array(new_pxx, dtype=np.float64)
 
     return pxx, freqs
 
@@ -36,7 +36,7 @@ def measure(device_index = 1, sample_rate = 20e6, center_freq = 5780e6, sample_c
 
     samples = hackrf_receiver.read_samples(sample_count)
 
-    pxx, freqs = psd(samples, NFFT=2048, Fs=hackrf_receiver.sample_rate/1e6, Fc=hackrf_receiver.center_freq/1e6)
+    pxx, freqs = mpl.Axes.psd(samples, NFFT=2048, Fs=hackrf_receiver.sample_rate/1e6, Fc=hackrf_receiver.center_freq/1e6)
 
 
     return samples, pxx, freqs
@@ -48,6 +48,8 @@ def measure(device_index = 1, sample_rate = 20e6, center_freq = 5780e6, sample_c
 #xlabel('Frequency (MHz)')
 #ylabel('Relative power (dB)')
 #show()
+
+
 
 
 #TODO change to true if using hardware, else keep false ot load from file a previous measurement
@@ -87,7 +89,7 @@ for index, power in enumerate(pxx_sample):
 #    print(value)
 if hardware_connected:
 
-    psd(samples, NFFT=2048, Fs=20e6/1e6, Fc=5780e6/1e6)
-    xlabel('Frequency (MHz)')
-    ylabel('Relative power (dB)')
-    show()
+    mpl.Axes.psd(samples, NFFT=2048, Fs=20e6/1e6, Fc=5780e6/1e6)
+    mpl.Axes.xlabel('Frequency (MHz)')
+    mpl.Axes.ylabel('Relative power (dB)')
+    mpl.Axes.show()

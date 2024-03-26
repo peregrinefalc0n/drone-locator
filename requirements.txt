@@ -1,2 +1,4 @@
 pyserial
 pyhackrf2
+matplotlib
+dearpygui
