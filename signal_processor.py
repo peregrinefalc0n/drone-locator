@@ -34,9 +34,9 @@ class SignalProcessor:
         pxx, freqs, line = psd(self.__measure(), NFFT=2048, Fs=self.hackrf.sample_rate/1e6, Fc=self.hackrf.center_freq/1e6, return_line=True)
 
         #display graph
-        xlabel('Frequency (MHz)')
-        ylabel('Relative power (dB)')
-        show()
+        #xlabel('Frequency (MHz)')
+        #ylabel('Relative power (dB)')
+        #show()
 
         #Take the first 1000 samples to avoid the DC spike (essentially taking less than half of our samples (we had 2048 of them))
         select_count = 1000

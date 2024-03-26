@@ -15,13 +15,13 @@ else:
     raise Exception("Unsupported platform")
 
 GLOBAL_ACC = 100
-GLOBAL_SPEED = 2000
+GLOBAL_SPEED = 3500
 
 CURRENT_POSITION_1 = 0
 CURRENT_POSITION_2 = 0
 
 
-sp = signal_processor.SignalProcessor(id=1)
+sp = signal_processor.SignalProcessor(id=0)
 
 # The custom command structure when interfacing with esp32 over serial (usb)
 # No returns:
@@ -349,7 +349,7 @@ def full_sweep_optimal(esp32):
     y_positions = calculate_vertical_movement_distances(horizontal_lines)
     point_array = [12,10,8,6,4,3,1]
 
-    start_time = time.time()
+    #start_time = time.time()
 
     for i in range(len(y_positions)):
             #print(f"VERTICAL [{i}] Moving to y position {y_positions[i]}.")
@@ -364,8 +364,8 @@ def full_sweep_optimal(esp32):
                 move_to_and_wait_for_complete(esp32, 1, x_position[1])
                 perform_scan(esp32, x_positions.index(x_position), x_position[0], x_position[1], y_positions[i])
 
-    end_time = time.time()
-    print(f"Full sweep time taken: {int(end_time - start_time)} seconds.")
+    #end_time = time.time()
+    #print(f"Full sweep time taken: {int(end_time - start_time)} seconds.")
 
 
 def horizontal_only_sweep(esp32, number_of_points = 12):
@@ -381,7 +381,7 @@ def horizontal_only_sweep(esp32, number_of_points = 12):
                 skip_first = False
                 continue
             move_to_and_wait_for_complete(esp32, 1, x_position[1])
-            perform_scan(x_positions.index(x_position), x_position[0], x_position[1], 1024)
+            perform_scan(esp32, x_positions.index(x_position), x_position[0], x_position[1], 1024)
         reverse = not reverse
         skip_first = True
 
@@ -391,13 +391,15 @@ def perform_scan(esp32, n, angle, x, y):
     telemetry_2 = get_telemetry(esp32, 2)
     print("=====================================")
     print(f"[{n}]Performing scan at x angle {angle} and x {x}, y {y}. Temp1 {telemetry_1['temperature']} Temp2 {telemetry_2['temperature']}.")
-    if int(telemetry_1['temperature']) >= 50 or int(telemetry_2['temperature']) >= 50:
-        raise ServoTemperatureTooHigh("Servo temperature too high.")
+    #if int(telemetry_1['temperature']) >= 50 or int(telemetry_2['temperature']) >= 50:
+    #    raise ServoTemperatureTooHigh("Servo temperature too high.")
     signals = sp.get_signals(offset=10)
     print("Signals found: ", len(signals))
-    for signal in signals:
-        print("Signal from", signal.start_freq, "to", signal.end_freq, "with peak power of", signal.peak_power_db, " at freq ", signal.peak_freq, end="")
+    for i,signal in enumerate(signals):
+        print(f"[{i}] Signal from", signal.start_freq, "to", signal.end_freq, "with peak power of", signal.peak_power_db, " at freq ", signal.peak_freq)
     print("=====================================")
+    if len(signals) > 0:
+        time.sleep(5)
 
 
 async def communicate():
@@ -416,8 +418,8 @@ async def communicate():
                     move_to_and_wait_for_complete(esp32, 2, 1024)
 
                 # do stuff here
-                full_sweep_optimal(esp32)
-                #horizontal_only_sweep(esp32, 32)
+                #full_sweep_optimal(esp32)
+                horizontal_only_sweep(esp32, 32)
     else:
         print("Invalid mode selected. Please select either 'wifi' or 'serial'.")
 
