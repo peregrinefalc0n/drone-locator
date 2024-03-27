@@ -5,10 +5,9 @@ import dearpygui.dearpygui as dpg
 
 if __name__ == "__main__":
     device = esp32_controller.ESP32Controller()
-    device.assign_signal_processor(signal_processor=signal_processor.SignalProcessor(id=1))
+    sp = signal_processor.SignalProcessor(id=1)
+    device.assign_signal_processor(signal_processor=sp)
     device.initialize()
-
-
 
     try:
         while True:
