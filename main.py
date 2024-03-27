@@ -1,10 +1,13 @@
-import esp32_controller
+from src import esp32_controller
+from src import signal_processor
+
 import dearpygui.dearpygui as dpg
 
 if __name__ == "__main__":
     device = esp32_controller.ESP32Controller()
-    device.connect()
+    device.assign_signal_processor(signal_processor=signal_processor.SignalProcessor(id=1))
     device.initialize()
+
 
 
     try:

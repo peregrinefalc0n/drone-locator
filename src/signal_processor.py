@@ -22,7 +22,7 @@ class SignalProcessor:
         self.center_freq = center_freq
         self.aplifier_on = aplifier_on
 
-        self.hackrf = HackRF()
+        self.hackrf = HackRF(id=self.device_id)
         self.hackrf.sample_rate = self.sample_rate
         self.hackrf.center_freq = self.center_freq
         self.hackrf.amplifier_on = self.aplifier_on

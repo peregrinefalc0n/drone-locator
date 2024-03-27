@@ -2,7 +2,7 @@ import time
 import serial
 import math
 import platform
-import signal_processor
+from src import signal_processor
 
 # The custom command structure when interfacing with esp32 over serial (usb)
 # No returns:
@@ -74,8 +74,11 @@ class ESP32Controller:
             raise Exception("Serial port can't be automatically detected. Please specify the serial port parameter.")
         
         # Initialize the signal processor
-        self.sp = signal_processor.SignalProcessor()
+        self.sp = None
 
+    def assign_signal_processor(self, signal_processor:signal_processor.SignalProcessor):
+        """Assign a signal processor to the ESP32 controller."""
+        self.sp = signal_processor
     
     def __y_future_within_bounds(location:int) -> bool:
         """Check if the future y-axis location is within the bounds of the vertical servo safe operation. \n
@@ -330,8 +333,11 @@ class ESP32Controller:
         print("=====================================")
         return signals, telemetry_1, telemetry_2
 
-    def connect(self):
-        """Connect to the ESP32 device."""
+
+    def initialize(self):
+        if self.sp == None:
+            raise Exception("Signal processor not assigned. Please assign a signal processor before initializing.")
+        """Connect to the ESP32 device and initialize the servos."""
         if self.communication_method == "serial":
             self.esp32 = serial.Serial(self.serial_port, self.baud_rate, timeout=self.timeout)
         elif self.communication_method == "wifi":
@@ -339,9 +345,7 @@ class ESP32Controller:
         else:
             raise Exception("Invalid communication method. Please select either 'serial' or 'wifi'.")
         print("[INFO] Connected to ESP32.")
-
-    def initialize(self):
-        """Initialize the servos - check if they are ready."""
+        
         self.__collectGarbage()
         if self.__servosReady():
             print("[INFO] Servos ready.")
@@ -349,8 +353,8 @@ class ESP32Controller:
 
 if __name__ == "__main__":
     device = ESP32Controller()
-    device.connect()
     device.initialize()
+    device.assign_signal_processor(signal_processor=signal_processor.SignalProcessor(id=1))
     while True:
         #device.full_sweep_optimal()
         device.horizontal_sweep(32, 1024, show_graph=True)
