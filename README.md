@@ -9,3 +9,6 @@ To install the required packages, follow these steps:
 
     pip install -r requirements.txt
 
+## Execution
+
+To run the GUI program, execute main.py.

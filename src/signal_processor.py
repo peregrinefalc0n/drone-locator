@@ -1,6 +1,7 @@
 from pyhackrf2 import HackRF
 import numpy as np
 from matplotlib.pyplot import psd, xlabel, ylabel, show
+
 class Signal:
     """Class that represents a signal"""
     def __init__(self, start_freq, end_freq, peak_power_db, peak_freq):
@@ -12,13 +13,20 @@ class Signal:
         self.center_freq = (end_freq + start_freq) / 2
 
 class SignalProcessor:
-    """Class that processes signals"""
-    def __init__(self, id):
-        self.hackrf = HackRF()
+    """ Class that processes signals. It takes a HackRF device id, sample rate, sample count, center frequency and amplifier state as arguments. \n
+        Method get_signals returns a list of signals that are above the noise floor by the given offset in dBm. \n"""
+    def __init__(self, id, sample_rate=20e6, sample_count=1e6, center_freq=5780e6, aplifier_on=False):
         self.device_id = id
-        self.hackrf.sample_rate = 20e6
-        self.hackrf.center_freq = 5780e6
-        self.sample_count = 1e6
+        self.sample_rate = sample_rate
+        self.sample_count = sample_count
+        self.center_freq = center_freq
+        self.aplifier_on = aplifier_on
+
+        self.hackrf = HackRF()
+        self.hackrf.sample_rate = self.sample_rate
+        self.hackrf.center_freq = self.center_freq
+        self.hackrf.amplifier_on = self.aplifier_on
+
 
     def __mW_to_dBm(self, power):
         """Converts power in mW to dBm"""
@@ -29,14 +37,14 @@ class SignalProcessor:
         samples = self.hackrf.read_samples(self.sample_count)
         return samples
     
-    def __process(self, offset = 10) -> list:
+    def __process(self, offset = 10, show_graph = False) -> list:
         """Processes the samples and returns a list of signals that are above the noise floor by the given offset in dBm"""
         pxx, freqs, line = psd(self.__measure(), NFFT=2048, Fs=self.hackrf.sample_rate/1e6, Fc=self.hackrf.center_freq/1e6, return_line=True)
 
-        #display graph
-        #xlabel('Frequency (MHz)')
-        #ylabel('Relative power (dB)')
-        #show()
+        if show_graph:
+            xlabel('Frequency (MHz)')
+            ylabel('Relative power (dB)')
+            show()
 
         #Take the first 1000 samples to avoid the DC spike (essentially taking less than half of our samples (we had 2048 of them))
         select_count = 1000
@@ -47,7 +55,7 @@ class SignalProcessor:
         min_index = np.argmin(pxx_sample)
         min_pxx_db = self.__mW_to_dBm(pxx_sample[min_index])
         
-        #TODO find a more elegant or dynamic solution instead of hardcoding the offset
+        #TODO find a more elegant or dynamic solution instead of hardcoding the offset value from lowest recorded power value
         
         #reset the sample arrays to max size again
         freqs_sample = freqs
@@ -76,11 +84,12 @@ class SignalProcessor:
 
         return signals_list
 
-    def get_signals(self, offset = 10):
-        """Returns a list of signals that are above the lowest signal by the given offset in dBm"""
-        return self.__process(offset=offset)
+    def get_signals(self, offset = 10, show_graph = False):
+        """Returns a list of signals that are above the lowest signal by the given offset in dBm. \n
+        If show_graph is set to True, a graph of the power spectral density is shown (blocking). \n"""
+        return self.__process(offset, show_graph)
 
 if __name__ == "__main__":
     signal_processor = SignalProcessor(id=1)
-    for signal in signal_processor.get_signals():
+    for signal in signal_processor.get_signals(show_graph=True):
         print("Signal from", signal.start_freq, "to", signal.end_freq, "with peak power of", signal.peak_power_db, " at freq ", signal.peak_freq)
