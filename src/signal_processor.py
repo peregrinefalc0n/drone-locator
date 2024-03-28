@@ -37,9 +37,10 @@ class SignalProcessor:
         samples = self.hackrf.read_samples(self.sample_count)
         return samples
     
-    def __process(self, offset = 10, show_graph = False) -> list:
-        """Processes the samples and returns a list of signals that are above the noise floor by the given offset in dBm"""
+    def __process(self, offset = 10, show_graph = False):
+        """Processes the samples and returns a list of signals that are above the noise floor by the given offset in dBm, and the raw data."""
         pxx, freqs, line = psd(self.__measure(), NFFT=2048, Fs=self.hackrf.sample_rate/1e6, Fc=self.hackrf.center_freq/1e6, return_line=True)
+        raw_data = [pxx, freqs]
 
         if show_graph:
             xlabel('Frequency (MHz)')
@@ -82,7 +83,7 @@ class SignalProcessor:
                 signals_list.append(temp_signal)
             index += 1
 
-        return signals_list
+        return (signals_list, raw_data)
 
     def get_signals(self, offset = 10, show_graph = False):
         """Returns a list of signals that are above the lowest signal by the given offset in dBm. \n
