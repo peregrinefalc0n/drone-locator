@@ -238,7 +238,7 @@ dpg.show_viewport()
 
 
 last_time = time.time()
-# Stupid way to do it but idk how to do it properly :D
+# /TODO replace telemetry data query with a more elegant solution that would use asyncio or threading etc
 while dpg.is_dearpygui_running():
     current_time = time.time()
     if ready_to_query:

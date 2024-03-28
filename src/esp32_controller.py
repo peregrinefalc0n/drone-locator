@@ -372,9 +372,4 @@ class ESP32Controller:
 
 
 if __name__ == "__main__":
-    device = ESP32Controller()
-    device.initialize()
-    device.assign_signal_processor(signal_processor=signal_processor.SignalProcessor(id=1))
-    while True:
-        #device.full_sweep_optimal()
-        device.horizontal_sweep(32, 1024, show_graph=True)
+    print("This is a module file. Run gui.py instead.")

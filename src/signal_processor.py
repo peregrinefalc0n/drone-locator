@@ -90,6 +90,4 @@ class SignalProcessor:
         return self.__process(offset, show_graph)
 
 if __name__ == "__main__":
-    signal_processor = SignalProcessor(id=1)
-    for signal in signal_processor.get_signals(show_graph=True):
-        print("Signal from", signal.start_freq, "to", signal.end_freq, "with peak power of", signal.peak_power_db, " at freq ", signal.peak_freq)
+    print("This is a module file. Run gui.py instead.")
