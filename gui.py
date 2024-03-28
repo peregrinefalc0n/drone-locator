@@ -6,22 +6,25 @@ from src import esp32_controller
 from src import signal_processor
 
 
+#Gui stuff
 top_area_height = 550
 bottom_area_height = 350
 
-
-sindatax = []
-sindatay = []
-
+#Device stuff
 hackrf_id = 0
 device = None
 sp = None
+
+#Variables
+telemetry_data = None
 
 #device = esp32_controller.ESP32Controller()
 #sp = signal_processor.SignalProcessor(id=hackrf_id)
 #device.assign_signal_processor(signal_processor=sp)
 #device.initialize()
 
+sindatax = []
+sindatay = []
 for i in range(0, 500):
     sindatax.append(i / 1000)
     sindatay.append(0.5 + 0.5 * sin(50 * i / 1000))
@@ -55,6 +58,11 @@ def start_device():
     sp = signal_processor.SignalProcessor(id=hackrf_id)
     device.assign_signal_processor(signal_processor=sp)
     device.initialize()
+
+def update_telemetry_table():
+    global device, telemetry_data_1, telemetry_data_2
+    telemetry_data_1 = device.__get_telemetry(1)
+    telemetry_data_2 = device.__get_telemetry(2)
 
 dpg.create_context()
 
@@ -117,14 +125,31 @@ with dpg.window(
                 dpg.add_table_column(label="Servo 1")
                 dpg.add_table_column(label="Servo 2")
 
-                with dpg.table_row(label="Temperature"):
-                    dpg.add_text("Temperature")
-                    dpg.add_text("36")
-                    dpg.add_text("24")
-                with dpg.table_row(label="Position"):
+                with dpg.table_row():
                     dpg.add_text("Position")
-                    dpg.add_text("2400")
-                    dpg.add_text("1024")
+                    dpg.add_text(telemetry_data_1["position"], default_value="-1")
+                    dpg.add_text(telemetry_data_2["position"], default_value="-1")
+                    
+                with dpg.table_row():
+                    dpg.add_text("Speed")
+                    dpg.add_text(telemetry_data_1["speed"], default_value="-1")
+                    dpg.add_text(telemetry_data_2["speed"], default_value="-1")
+
+                with dpg.table_row():
+                    dpg.add_text("Load")
+                    dpg.add_text(telemetry_data_1["load"], default_value="-1")
+                    dpg.add_text(telemetry_data_2["load"], default_value="-1")
+
+                with dpg.table_row():
+                    dpg.add_text("Voltage")
+                    dpg.add_text(f'{telemetry_data_1["voltage"][:-1]}.{telemetry_data_1["voltage"][-1]} V', default_value="-1 V")
+                    dpg.add_text(f'{telemetry_data_1["voltage"][:-1]}.{telemetry_data_1["voltage"][-1]} V', default_value="-1 V")
+
+
+                with dpg.table_row():
+                    dpg.add_text("Temperature")
+                    dpg.add_text(f'{telemetry_data_1["temperature"]} °C', default_value="-1 °C")
+                    dpg.add_text(f'{telemetry_data_2["temperature"]} °C', default_value="-1 °C")
 
         with dpg.child_window(
             height=bottom_area_height,
@@ -161,5 +186,10 @@ with dpg.window(
 
 dpg.setup_dearpygui()
 dpg.show_viewport()
-dpg.start_dearpygui()
+
+#Stupid way to do it but idk how to do it properly :D
+while dpg.is_dearpygui_running():
+    update_telemetry_table()
+    dpg.render_dearpygui_frame()
+
 dpg.destroy_context()
