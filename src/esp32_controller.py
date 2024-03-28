@@ -335,6 +335,7 @@ class ESP32Controller:
 
 
     def initialize(self):
+        """Initialize the ESP32 controller and connect to the device."""
         if self.sp == None:
             raise Exception("Signal processor not assigned. Please assign a signal processor before initializing.")
         """Connect to the ESP32 device and initialize the servos."""
