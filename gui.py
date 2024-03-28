@@ -13,7 +13,7 @@ bottom_area_height = 350
 sindatax = []
 sindatay = []
 
-hackrf_id = 1
+hackrf_id = 0
 device = None
 sp = None
 
@@ -44,7 +44,7 @@ def button_callback(sender, app_data, user_data):
 
 def set_hackrf_id(sender):
     global hackrf_id
-    hackrf_id = dpg.get_value(sender)
+    hackrf_id = int(dpg.get_value(sender))
     
     
 def start_device():
@@ -81,7 +81,7 @@ with dpg.window(
             height=top_area_height, width=400, no_scrollbar=True, no_scroll_with_mouse=True
         ):
             with dpg.group(label="start", horizontal=True):
-                hackrf_id = dpg.add_input_int(tag="hackrf_id", label="HackRF ID", default_value=0, step=1, min_value=0, max_value=255, width=100, callback=set_hackrf_id)
+                dpg.add_input_int(label="HackRF ID", default_value=0, step=1, min_value=0, max_value=255, width=100, callback=set_hackrf_id)
                 dpg.add_button(label="Initialize device", callback=start_device)
             
             dpg.add_button(label="Button 2")

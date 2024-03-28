@@ -160,8 +160,8 @@ class ESP32Controller:
     def __servosReady(self) -> bool:
         """Returns true when servos are ready to be used."""
         while True:
-            horizontal  = self.__get_position(self.esp32, 1)
-            vertical    = self.__get_position(self.esp32, 2)
+            horizontal  = self.__get_position(1)
+            vertical    = self.__get_position(2)
             if horizontal == -1 or vertical == -1:
                 print(f"Servo 1: {horizontal}, Servo 2: {vertical}. Retrying in 1 second.")
                 time.sleep(1)
@@ -323,7 +323,7 @@ class ESP32Controller:
         telemetry_1 = self.__get_telemetry(1)
         telemetry_2 = self.__get_telemetry(2)
         print("=====================================")
-        print(f"[INFO] Performing scan at x {telemetry_1["position"]}, y {telemetry_2["position"]}. Temp1 {telemetry_1['temperature']} Temp2 {telemetry_2['temperature']}.")
+        print(f'[INFO] Performing scan at x {telemetry_1["position"]}, y {telemetry_2["position"]}. Temp1 {telemetry_1["temperature"]} Temp2 {telemetry_2["temperature"]}.')
         #if int(telemetry_1['temperature']) >= 50 or int(telemetry_2['temperature']) >= 50:
         #    raise ServoTemperatureTooHigh("Servo temperature too high.")
         signals = self.sp.get_signals(offset, show_graph)
