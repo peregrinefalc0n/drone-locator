@@ -216,6 +216,25 @@ class ESP32Controller:
             telemetry_data = {}
         return telemetry_data
 
+    def get_telemetry(self, servo_id:int) -> dict[str, int]:
+        self.esp32.write((f"GET_TELEMETRY,{servo_id}" + "\n").encode())
+        #TELEMETRY,<servo_id>,<position>,<speed>,<load>,<voltage>,<temperature>,<move>,<current>
+        telemetry = self.esp32.readline().decode().split(",")
+        if len(telemetry) > 1 and "TELEMETRY" in telemetry[0]:
+            telemetry_data = {
+                "servo_id": telemetry[1],
+                "position": telemetry[2],
+                "speed": telemetry[3],
+                "load": telemetry[4],
+                "voltage": telemetry[5],
+                "temperature": telemetry[6],
+                "move": telemetry[7],
+                "current": telemetry[8],
+            }
+        else:
+            telemetry_data = {}
+        return telemetry_data    
+    
     def __move_to(self, servo_id:int, expected_pos:int):
         """Move the servo with the specified id to the expected position."""
         # safeguard for y-axis
