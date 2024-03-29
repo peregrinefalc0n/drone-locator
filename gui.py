@@ -21,13 +21,19 @@ def gui_query_thread_method():
             sp = signal_processor.SignalProcessor(id=hackrf_id)
             device.assign_signal_processor(signal_processor=sp)
             device.initialize()
-            device_center_frequency_from_gui = device.sp.center_freq
-            device_sample_rate_from_gui = device.sp.sample_rate
+            device_center_frequency_from_gui = device.sp.hackrf.center_freq
+            device_sample_rate_from_gui = device.sp.hackrf.sample_rate
             device_sample_count_from_gui = device.sp.sample_count
-            device_amplifier = device.sp.aplifier_on
+            device_amplifier = device.sp.hackrf.amplifier_on
             inbound_data_queue = device.return_queue
 
             ready_to_query = True
+            dpg.enable_item("start_full_scan_button")
+            dpg.enable_item("stop_scan_button")
+            dpg.enable_item("toggle_amplifier_button")
+            dpg.enable_item("move_antenna_front_button")
+            dpg.enable_item("perform_single_scan_button")
+            dpg.enable_item("start_horizontal_scan_button")
 
         if command == "stop_device":
             device.stop()
@@ -35,40 +41,70 @@ def gui_query_thread_method():
         if command == "get_telemetry":
             if currently_scanning:
                 continue
-            telemetry_data_1 = device.get_telemetry(1)
-            telemetry_data_2 = device.get_telemetry(2)
+            else:
+                telemetry_data_1 = device.get_telemetry(1)
+                telemetry_data_2 = device.get_telemetry(2)
 
         if command == "set_frequency":
-            device.sp.center_freq = device_center_frequency_from_gui
+            device.sp.hackrf.center_freq = device_center_frequency_from_gui
 
         if command == "toggle_amplifier":
-            device.sp = not device.sp.aplifier_on
+            device.sp.set_amplifier(not device.sp.hackrf.amplifier_on)
+            print(f"Amplifier is now: {device.sp.hackrf.amplifier_on}")
+            dpg.set_value("amplifier_status", f"Amplifier is {'on' if device.sp.hackrf.amplifier_on else 'off'}")
 
         if command == "set_sample_rate":
-            device.sp.sample_rate = device_sample_rate_from_gui
+            device.sp.hackrf.sample_rate = device_sample_rate_from_gui
 
         if command == "set_sample_count":
             device.sp.sample_count = device_sample_count_from_gui
 
-        if command == "perform_full_scan":
-
-            def perform_full_scan_method():
-                global inbound_data_queue, currently_scanning
-                inbound_data_queue = device.return_queue
-                try:
-                    device.full_sweep_optimal()
-                except esp32_controller.stopEverything:
-                    print("Device was stopped")
-                    currently_scanning = False
-            
+        if command == "perform_full_scan":            
             currently_scanning = True
             try:
-                device_thread = threading.Thread(target=perform_full_scan_method)
-                device_thread.daemon = True
+                device_thread = threading.Thread(target=perform_full_scan_method, daemon=True)
+                device_thread.start()
+            except esp32_controller.stopEverything:
+                print("Device was stopped")
+                device_thread = None
+                currently_scanning = False
+        
+        if command == "perform_horizontal_scan":            
+            currently_scanning = True
+            try:
+                device_thread = threading.Thread(target=perform_horizontal_scan_method, daemon=True)
                 device_thread.start()
             except esp32_controller.stopEverything:
                 print("Device was stopped")
                 currently_scanning = False
+                device_thread = None
+
+        
+        if command == "move_antenna_front":
+            device.go_to_forward()
+        
+        if command == "perform_single_scan":
+            device.perform_scan()
+
+
+def perform_horizontal_scan_method():
+    global inbound_data_queue, currently_scanning, horizontal_scan_points
+    inbound_data_queue = device.return_queue
+    try:
+        device.horizontal_sweep(number_of_points=horizontal_scan_points)
+    except esp32_controller.stopEverything:
+        print("Device was stopped")
+        currently_scanning = False
+
+
+def perform_full_scan_method():
+    global inbound_data_queue, currently_scanning
+    inbound_data_queue = device.return_queue
+    try:
+        device.full_sweep_optimal()
+    except esp32_controller.stopEverything:
+        print("Device was stopped")
+        currently_scanning = False
 
 
 def import_data_thread_method():
@@ -100,20 +136,36 @@ def import_data_thread_method():
             telemetry_data_2 = telem2
 
 
-        text = f"Signals: {signals}" if len(signals) >= 1 else "No signals found"
+        text = ""
+        for signal in signals:
+            text += f"Signal: {round(signal.start_freq, 4)} - {round(signal.end_freq, 4)} Hz, {signal.peak_power_db} dBm\n"
         add_to_console_table(text)
 
 
 def button_callback(sender, app_data, user_data):
-    print(f"sender is: {sender}")
-    print(f"app_data is: {app_data}")
-    print(f"user_data is: {user_data}")
-    if sender == "initialize_button_pressed":
+    #print(f"sender is: {sender}")
+    #print(f"app_data is: {app_data}")
+    #print(f"user_data is: {user_data}")
+    if sender == "initialize_button":
         start_device()
-    if sender == "start_full_scan_pressed":
+    if sender == "start_full_scan_button":
         outbound_command_queue.put("perform_full_scan")
-    if sender == "stop_scan_pressed":
+        #dpg.disable_item("start_full_scan_button")
+    if sender == "start_horizontal_scan_button":
+        global horizontal_scan_points
+        horizontal_scan_points = dpg.get_value("horizontal_scan_points")
+        #dpg.disable_item("perform_horizontal_scan_button")
+        outbound_command_queue.put("perform_horizontal_scan")
+    if sender == "stop_scan_button":
         outbound_command_queue.put("stop_device")
+        #dpg.enable_item("perform_horizontal_scan_button")
+        #dpg.enable_item("start_full_scan_button")
+    if sender == "toggle_amplifier_button":
+        outbound_command_queue.put("toggle_amplifier")
+    if sender == "move_antenna_front_button":
+        outbound_command_queue.put("move_antenna_front")
+    if sender == "perform_single_scan_button":
+        outbound_command_queue.put("perform_single_scan")
 
 
 def set_hackrf_id(sender):
@@ -123,6 +175,7 @@ def set_hackrf_id(sender):
 
 def start_device():
     outbound_command_queue.put("start_device")
+    dpg.disable_item("initialize_button")
 
 
 def update_series():
@@ -143,6 +196,9 @@ def update_telemetry_table():
     if telemetry_data_1 is None or telemetry_data_2 is None:
         return
 
+
+
+    
     dpg.set_value("pos_1", telemetry_data_1["position"])
     dpg.set_value("pos_2", telemetry_data_2["position"])
     dpg.set_value("speed_1", telemetry_data_1["speed"])
@@ -162,6 +218,8 @@ def update_telemetry_table():
 
 
 def add_to_console_table(message):
+    if len(message) == 0:
+        return
     message = f'{time.strftime("%H:%M:%S")}] - {message}'
     dpg.set_value("console_row_1", dpg.get_value("console_row_1") + f"\n{message}")
 
@@ -200,35 +258,41 @@ def gui():
                 dpg.add_input_int(
                     label="HackRF ID",
                     default_value=0,
-                    step=1,
                     min_value=0,
                     max_value=255,
                     width=100,
                     callback=set_hackrf_id,
                 )
                 dpg.add_button(
-                    tag="initialize_button_pressed",
+                    tag="initialize_button",
                     label="Initialize Device",
                     callback=button_callback,
                 )
 
                 dpg.add_button(
-                    tag="start_full_scan_pressed",
+                    tag="start_full_scan_button",
                     label="Start Full Scan",
                     callback=button_callback,
+                    enabled=False,
                 )
-
+                with dpg.group(horizontal=True):
+                    
+                    dpg.add_input_int(tag="horizontal_scan_points", default_value=16, min_value=1, max_value=1000, width=100)
+                    
+                    dpg.add_button(tag="start_horizontal_scan_button", label="Start Horizontal Scan", enabled=False, callback=button_callback)
+                
                 dpg.add_button(
-                    tag="stop_scan_pressed", label="Stop Scan", callback=button_callback
+                    tag="stop_scan_button", label="Stop Scan", enabled=False, callback=button_callback
                 )
-            with dpg.child_window(
-                height=top_area_height,
-                width=800,
-                no_scrollbar=True,
-                no_scroll_with_mouse=True,
-                border=False,
-            ):
-                dpg_map.add_map_widget(
+                
+                dpg.add_button(tag="toggle_amplifier_button", enabled=False, label="Toggle Amplifier", callback=button_callback)
+                dpg.add_text(tag="amplifier_status", default_value="Amplifier is off")
+                
+                dpg.add_button(tag="move_antenna_front_button" , label="Move antenna to front", enabled=False, callback=button_callback)
+                
+                dpg.add_button(tag="perform_single_scan_button", label="Perform single scan", enabled=False, callback=button_callback)
+
+            dpg_map.add_map_widget(
                     width=800,
                     height=top_area_height,
                     center=(60.1641, 24.9402),
@@ -305,14 +369,14 @@ def gui():
                     dpg.add_plot_legend()
 
                     # REQUIRED: create x and y axes
-                    dpg.add_plot_axis(dpg.mvXAxis, label="Frequency (Hz)")
-                    dpg.add_plot_axis(dpg.mvYAxis, label="Signal Strength (dBm)", tag="y_axis", log_scale=True, lock_max=True, lock_min=True)
+                    dpg.add_plot_axis(dpg.mvXAxis, label="Frequency (Hz)", tag="x_axis")
+                    dpg.add_plot_axis(dpg.mvYAxis, label="Signal Strength (dBm)", tag="y_axis", log_scale=False)
 
                     # series belong to a y axis
                     dpg.add_line_series(
-                        [1.0,2.0,3.0],
-                        [1.0,1.0,1.0],
-                        label="0.5 + 0.5 * sin(x)",
+                        [0.0 for i in range(2048)],
+                        [0.0 for i in range(100)],
+                        label="HackRF Data",
                         parent="y_axis",
                         tag="series_tag",
                         
@@ -324,7 +388,7 @@ def gui():
                 no_scrollbar=False,
                 no_scroll_with_mouse=False,
             ):
-                dpg.add_text("Bottom right area", tag="console_row_1")
+                dpg.add_text("Console log", tag="console_row_1")
 
         with dpg.group(horizontal=True):
             dpg.add_button(label="Footer 1", width=175)
@@ -335,34 +399,34 @@ def gui():
     dpg.setup_dearpygui()
     dpg.show_viewport()
     first_run = True
-    last_time = time.time()
+    fast_loop_timer = slow_loop_timer = time.time()
     # update telemetry table every second from the global variables
     while dpg.is_dearpygui_running():
         if first_run:
             first_run = False
-            gui_query_thread = threading.Thread(target=gui_query_thread_method)
-            gui_query_thread.daemon = True
+            gui_query_thread = threading.Thread(target=gui_query_thread_method, daemon=True)
 
-            import_data_thread = threading.Thread(target=import_data_thread_method)
-            import_data_thread.daemon = True
+            import_data_thread = threading.Thread(target=import_data_thread_method, daemon=True)
             import_data_thread.start()
             gui_query_thread.start()
 
         current_time = time.time()
         if ready_to_query:
             # Things to do every second
-            if current_time > last_time + 0.5:
+            if current_time > slow_loop_timer + 0.5:
                 # Request data
                 if not currently_scanning:
                     outbound_command_queue.put("get_telemetry")
                 # Update telemetry table
                 update_telemetry_table()
-                last_time = current_time
+                slow_loop_timer = time.time()
 
-            if current_time > last_time + 0.1:
+            if current_time > fast_loop_timer + 0.1:
                 # Update series
                 update_series()
-
+                fast_loop_timer = time.time()
+                
+            
         dpg.render_dearpygui_frame()
 
     dpg.destroy_context()
@@ -386,6 +450,7 @@ device_amplifier = False
 
 ready_to_query = False
 currently_scanning = False
+horizontal_scan_points = 16
 
 # Variables
 telemetry_data_1 = None

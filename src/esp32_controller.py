@@ -161,8 +161,8 @@ class ESP32Controller:
             coordinates.append((x, y))
         return coordinates
 
-    def __calculate_horizontal_distances(self,
-        num_points=12, circumference=4092, start_angle=15
+    def __calculate_horizontal_distances(
+        self, num_points=12, circumference=4092, start_angle=15
     ):
         """Calculate num_points amount of horizontal distances from point 0 all the way to 4096. These distances are what the servos will move to."""
         distances = []
@@ -227,30 +227,11 @@ class ESP32Controller:
                 self.CURRENT_POSITION_2 = location
         return location
 
-    def __get_telemetry(self, servo_id: int) -> dict[str, int]:
-        self.esp32.write((f"GET_TELEMETRY,{servo_id}" + "\n").encode())
-        # TELEMETRY,<servo_id>,<position>,<speed>,<load>,<voltage>,<temperature>,<move>,<current>
-        telemetry = self.esp32.readline().decode().split(",")
-        if telemetry is not None and "TELEMETRY" in telemetry[0]:
-            telemetry_data = {
-                "servo_id": telemetry[1],
-                "position": telemetry[2],
-                "speed": telemetry[3],
-                "load": telemetry[4],
-                "voltage": telemetry[5],
-                "temperature": telemetry[6],
-                "move": telemetry[7],
-                "current": telemetry[8],
-            }
-        else:
-            telemetry_data = {}
-        return telemetry_data
-
     def get_telemetry(self, servo_id: int) -> dict[str, int]:
         self.esp32.write((f"GET_TELEMETRY,{servo_id}" + "\n").encode())
         # TELEMETRY,<servo_id>,<position>,<speed>,<load>,<voltage>,<temperature>,<move>,<current>
         telemetry = self.esp32.readline().decode().split(",")
-        if len(telemetry) > 1 and "TELEMETRY" in telemetry[0]:
+        if telemetry is not None and "TELEMETRY" in telemetry[0] and int(telemetry[1]) == servo_id:
             telemetry_data = {
                 "servo_id": telemetry[1],
                 "position": telemetry[2],
@@ -263,15 +244,16 @@ class ESP32Controller:
             }
         else:
             telemetry_data = {}
+        print(telemetry_data)
         return telemetry_data
 
     def __move_to(self, servo_id: int, expected_pos: int):
         """Move the servo with the specified id to the expected position."""
-        # safeguard for y-axis
         if self.stop_everything:
             self.stop_everything = False
             raise stopEverything("User stopped everything.")
 
+        # safeguard for y-axis
         if servo_id == 2:
             if not self.__y_future_within_bounds(expected_pos):
                 raise VerticalServoFutureOutOfBounds
@@ -285,10 +267,15 @@ class ESP32Controller:
 
     def __syncmove_to(self, servo_id1, servo_id2, expected_pos1, expected_pos2):
         """Move two servos to the desired positions at the same time synchronously."""
+        if self.stop_everything:
+            self.stop_everything = False
+            raise stopEverything("User stopped everything.")
+
         # safeguard for y-axis
         if servo_id2 == 2:
             if not self.__y_future_within_bounds(expected_pos2):
                 raise VerticalServoFutureOutOfBounds
+
         self.esp32.write(
             (
                 f"SYNC_MOVE,[{servo_id1},{servo_id2}],2,[{expected_pos1},{expected_pos2}],[{self.GLOBAL_SPEED},{self.GLOBAL_SPEED}],[{self.GLOBAL_ACC},{self.GLOBAL_ACC}]"
@@ -348,11 +335,10 @@ class ESP32Controller:
             )
             for x_position in x_positions if i % 2 == 0 else reversed(x_positions):
                 self.__move_to_and_wait_for_complete(1, x_position[1])
-                signals, raw_data, telem1, telem2 = self.perform_scan(
-                    offset=10, show_graph=show_graph
-                )
-                self.return_queue.put((signals, raw_data, telem1, telem2), block=False, timeout=0)
-                print(len(signals), len(raw_data), len(telem1), len(telem2))
+                self.perform_scan(offset=10, show_graph=show_graph)
+                # self.return_queue.put((signals, raw_data, telem1, telem2), block=False, timeout=0)
+                # print(len(signals), len(raw_data), len(telem1), len(telem2))
+
     def horizontal_sweep(self, show_graph=False, number_of_points=12, y_level=1024):
         """Perform a horizontal sweep scan at y_level with the specified number of points."""
         self.__move_to_and_wait_for_complete(servo_id=2, expected_pos=y_level)
@@ -366,27 +352,29 @@ class ESP32Controller:
                     skip_first = False
                     continue
                 self.__move_to_and_wait_for_complete(1, x_position[1])
-                signals, raw_data, telem1, telem2 = self.perform_scan(
-                    offset=10, show_graph=show_graph
-                )
-                self.return_queue.put((signals, raw_data, telem1, telem2), block=False, timeout=0)
-                print(len(signals), len(raw_data), len(telem1), len(telem2))
-
+                self.perform_scan(offset=10, show_graph=show_graph)
+                # self.return_queue.put((signals, raw_data, telem1, telem2), block=False, timeout=0)
+                # print(len(signals), len(raw_data), len(telem1), len(telem2))
 
             reverse = not reverse
             skip_first = True
+
+    def go_to_forward(self):
+        self.__move_to(1, 2048)
+        self.__move_to(2, 1024)
+        # self.__syncmove_to(1, 2, 2048, 1024)
 
     def perform_scan(
         self, offset=10, show_graph=False
     ) -> tuple[list[signal_processor.Signal], dict[str, int], dict[str, int]]:
         """Perform a scan at the current servo positions. \n
         Returns any signals found + servo telemetry."""
-        telemetry_1 = self.__get_telemetry(1)
-        telemetry_2 = self.__get_telemetry(2)
+        telemetry_1 = self.get_telemetry(1)
+        telemetry_2 = self.get_telemetry(2)
         print("=====================================")
-        #print(
+        # print(
         #    f'[INFO] Performing scan at x {telemetry_1["position"]}, y {telemetry_2["position"]}. Temp1 {telemetry_1["temperature"]} Temp2 {telemetry_2["temperature"]}.'
-        #)
+        # )
         # if int(telemetry_1['temperature']) >= 50 or int(telemetry_2['temperature']) >= 50:
         #    raise ServoTemperatureTooHigh("Servo temperature too high.")
         signals, raw_data = self.sp.get_signals(offset, show_graph)
@@ -403,7 +391,9 @@ class ESP32Controller:
                 signal.peak_freq,
             )
         print("=====================================")
-        return (signals, raw_data, telemetry_1, telemetry_2)
+        self.return_queue.put(
+            (signals, raw_data, telemetry_1, telemetry_2), block=False, timeout=0
+        )
 
     def initialize(self):
         """Initialize the ESP32 controller and connect to the device."""
