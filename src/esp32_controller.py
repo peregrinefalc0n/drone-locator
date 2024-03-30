@@ -75,11 +75,14 @@ class ESP32Controller:
         self.timeout = timeout
         self.stop_everything = False
         self.return_queue = queue.Queue()
+        self.active_signals = []  # x,y,start_freq,end_freq,peak_freq,peak_power_db
 
         self.GLOBAL_ACC = 100
         self.GLOBAL_SPEED = 2000
         self.CURRENT_POSITION_1 = 0
         self.CURRENT_POSITION_2 = 0
+        self.TELEMETRY_1 = None
+        self.TELEMETRY_2 = None
 
         if serial_port == None:
             if platform.system() == "Windows":
@@ -138,7 +141,7 @@ class ESP32Controller:
         return y_positions
 
     # Unused (for now)
-    def __calculate_circular_coordinates(self, center_x, center_y, radius, n):
+    def calculate_circular_coordinates(self, center_x, center_y, radius, n):
         """Calculate n evenly spaced out coordinates in a circle around center_x and center_y coordinates."""
         coordinates = []
         for i in range(n):
@@ -162,7 +165,7 @@ class ESP32Controller:
         return coordinates
 
     def __calculate_horizontal_distances(
-        self, num_points=12, circumference=4092, start_angle=15
+        self, num_points=12, circumference=4092, start_angle=0
     ):
         """Calculate num_points amount of horizontal distances from point 0 all the way to 4096. These distances are what the servos will move to."""
         distances = []
@@ -231,7 +234,11 @@ class ESP32Controller:
         self.esp32.write((f"GET_TELEMETRY,{servo_id}" + "\n").encode())
         # TELEMETRY,<servo_id>,<position>,<speed>,<load>,<voltage>,<temperature>,<move>,<current>
         telemetry = self.esp32.readline().decode().split(",")
-        if telemetry is not None and "TELEMETRY" in telemetry[0] and int(telemetry[1]) == servo_id:
+        if (
+            telemetry is not None
+            and "TELEMETRY" in telemetry[0]
+            and int(telemetry[1]) == servo_id
+        ):
             telemetry_data = {
                 "servo_id": telemetry[1],
                 "position": telemetry[2],
@@ -242,10 +249,25 @@ class ESP32Controller:
                 "move": telemetry[7],
                 "current": telemetry[8],
             }
+            if servo_id == 1:
+                self.TELEMETRY_1 = telemetry_data
+            elif servo_id == 2:
+                self.TELEMETRY_2 = telemetry_data
         else:
-            telemetry_data = {}
-        print(telemetry_data)
+            return None
+        # print(telemetry_data)
         return telemetry_data
+
+    def move_both(self, servo_id1, servo_id2, expected_pos1, expected_pos2):
+        """Move two servos to the specified positions."""
+        self.__move_to(servo_id1, expected_pos1)
+        self.__move_to(servo_id2, expected_pos2)
+
+        while True:
+            if self.__inRange(
+                self.__get_position(servo_id1), expected_pos1, 10
+            ) and self.__inRange(self.__get_position(servo_id2), expected_pos2, 10):
+                return
 
     def __move_to(self, servo_id: int, expected_pos: int):
         """Move the servo with the specified id to the expected position."""
@@ -256,7 +278,9 @@ class ESP32Controller:
         # safeguard for y-axis
         if servo_id == 2:
             if not self.__y_future_within_bounds(expected_pos):
-                raise VerticalServoFutureOutOfBounds
+                raise VerticalServoFutureOutOfBounds(
+                    "Vertical servo future position out of bounds."
+                )
 
         self.esp32.write(
             (
@@ -274,7 +298,9 @@ class ESP32Controller:
         # safeguard for y-axis
         if servo_id2 == 2:
             if not self.__y_future_within_bounds(expected_pos2):
-                raise VerticalServoFutureOutOfBounds
+                raise VerticalServoFutureOutOfBounds(
+                    "Vertical servo future posiion out of bounds."
+                )
 
         self.esp32.write(
             (
@@ -329,7 +355,7 @@ class ESP32Controller:
         for i in range(len(y_positions)):
             self.__move_to_and_wait_for_complete(2, y_positions[i])
             points = point_array[i]
-            start_angle = 15 if (i % 2 == 0) else 0
+            start_angle = 0
             x_positions = self.__calculate_horizontal_distances(
                 points, 4096, start_angle
             )
@@ -352,12 +378,158 @@ class ESP32Controller:
                     skip_first = False
                     continue
                 self.__move_to_and_wait_for_complete(1, x_position[1])
-                self.perform_scan(offset=10, show_graph=show_graph)
+                scan_data = self.perform_scan(offset=10, show_graph=show_graph)
                 # self.return_queue.put((signals, raw_data, telem1, telem2), block=False, timeout=0)
                 # print(len(signals), len(raw_data), len(telem1), len(telem2))
 
             reverse = not reverse
             skip_first = True
+
+    def horizontal_sweep_precise(
+        self, show_graph=False, number_of_points=12, y_level=1024
+    ):
+        """Perform a horizontal sweep scan at y_level with the specified number of points."""
+        self.__move_to_and_wait_for_complete(servo_id=2, expected_pos=y_level)
+        x_positions = self.__calculate_horizontal_distances(number_of_points, 4096, 0)
+
+        reverse = False
+        skip_first = False
+        if True: #remove this
+            current_run_signals = []
+            for x_position in reversed(x_positions) if reverse else x_positions:
+                if skip_first:
+                    skip_first = False
+                    continue
+                self.__move_to_and_wait_for_complete(1, x_position[1])
+                scan_data = self.perform_scan(offset=10, show_graph=show_graph)
+                # x,y,start_freq,end_freq,peak_freq,peak_power_db
+                x = self.CURRENT_POSITION_1
+                y = self.CURRENT_POSITION_2
+                # start_freq = scan_data[0][0].start_freq
+                # end_freq = scan_data[0][0].end_freq
+                # peak_freq = scan_data[0][0].peak_freq
+                # peak_power_db = scan_data[0][0].peak_power_db
+
+                if len(scan_data[0]) > 0:  # if we got signals on this scan
+                    for signal in scan_data[0]:
+                        print("Found signals:", len(scan_data[0]))
+                        if len(self.active_signals) == 0:
+                            signal.x = x
+                            signal.y = y
+                            self.active_signals.append(signal)
+                            print("!active signals == 0! Added completely new signal to active signals", signal.to_string())
+                        
+                        
+                        # check if signal is already in active signals, if it is, update it
+                        this_signal_is_new = True
+                        for index, existing_signal in enumerate(self.active_signals):
+                            if (
+                                self.__inRange(
+                                    signal.peak_freq,
+                                    existing_signal.peak_freq,
+                                    0.1,
+                                )
+                                and self.__inRange(
+                                    signal.start_freq,
+                                    existing_signal.start_freq,
+                                    1,
+                                )
+                                and self.__inRange(
+                                    signal.end_freq,
+                                    existing_signal.end_freq,
+                                    0.1
+                                )
+                                # and self.__inRange(x, existing_signal.x, 10)
+                                # and self.__inRange(y, existing_signal.y, 10)
+                            ):
+                                # found existing signal, update it
+                                this_signal_is_new = False
+                                (
+                                    x_return,
+                                    y_return,
+                                    signal_frequency_return,
+                                    signal_power_return,
+                                ) = self.find_strongest_point_of_signal(
+                                    x_position[1],
+                                    y_level,
+                                    signal.peak_freq,
+                                    signal.peak_power_db,
+                                    signal.start_freq,
+                                    signal.end_freq,
+                                )
+                                if signal_power_return > existing_signal.peak_power_db:
+                                    print("Found a stronger signal position: ", x_return, y_return)
+                                    # update existing signal with new data
+                                    existing_signal.x = x_return
+                                    existing_signal.y = y_return
+                                    existing_signal.peak_freq = signal_frequency_return
+                                    existing_signal.peak_power_db = signal_power_return
+                                    existing_signal.start_freq = signal.start_freq
+                                    existing_signal.end_freq = signal.end_freq
+                                    # x,y,signal
+                                    break
+                        if this_signal_is_new:
+                            signal.x = x
+                            signal.y = y
+                            self.active_signals.append(signal)
+                            print("Added new signal to active signals", signal.to_string())
+                        
+                                        
+                # self.return_queue.put((signals, raw_data, telem1, telem2), block=False, timeout=0)
+                # print(len(signals), len(raw_data), len(telem1), len(telem2))
+
+            reverse = not reverse
+            skip_first = True
+
+    def find_strongest_point_of_signal(
+        self,
+        prev_x,
+        prev_y,
+        prev_signal_frequency,
+        prev_signal_power,
+        prev_signal_start_freq,
+        prev_signal_end_freq,
+    ):
+        """Finds the strongest point of a signal by moving the device to the location of the signal and scanning again. If a stronger signal is found, it moves to that location and scans again. This process is repeated until no stronger signal is found."""
+        x_return = prev_x
+        y_return = prev_y
+        signal_frequency_return = prev_signal_frequency
+        signal_power_return = prev_signal_power
+
+        locations = self.calculate_circular_coordinates(prev_x, prev_y, 25, 8)
+
+        location_data = list()
+        for location in locations:
+            #print(location)
+            self.move_both(1, 2, location[0], location[1])
+            location_data.append([location, self.perform_scan()])
+
+        new_strongest_signal_power = None
+        new_strongest_signal_freq = None
+
+        for scan in location_data:
+            signals = scan[1][0]
+            if len(signals) > 0:
+                for signal in signals:
+                    if prev_signal_start_freq < signal.peak_freq < prev_signal_end_freq:
+                        if signal.peak_power_db > prev_signal_power:
+                            new_strongest_signal_power = signal.peak_power_db
+                            new_strongest_signal_freq = signal.peak_freq
+                            new_strongest_signal_x = self.__get_position(1)
+                            new_strongest_signal_y = self.__get_position(2)
+
+        # If we found a stronger signal, we move to that location and scan again to find the strongest point of the signal
+        if new_strongest_signal_power is not None:
+            return self.find_strongest_point_of_signal(
+                prev_x=new_strongest_signal_x,
+                prev_y=new_strongest_signal_y,
+                prev_signal_frequency=new_strongest_signal_freq,
+                prev_signal_power=new_strongest_signal_power,
+                prev_signal_start_freq=prev_signal_start_freq,
+                prev_signal_end_freq=prev_signal_end_freq,
+            )
+        else:
+            return x_return, y_return, signal_frequency_return, signal_power_return
 
     def go_to_forward(self):
         self.__move_to(1, 2048)
@@ -366,34 +538,35 @@ class ESP32Controller:
 
     def perform_scan(
         self, offset=10, show_graph=False
-    ) -> tuple[list[signal_processor.Signal], dict[str, int], dict[str, int]]:
+    ) -> tuple[list[signal_processor.Signal], list, dict[str, int], dict[str, int]]:
         """Perform a scan at the current servo positions. \n
         Returns any signals found + servo telemetry."""
         telemetry_1 = self.get_telemetry(1)
         telemetry_2 = self.get_telemetry(2)
-        print("=====================================")
+        # print("=====================================")
         # print(
         #    f'[INFO] Performing scan at x {telemetry_1["position"]}, y {telemetry_2["position"]}. Temp1 {telemetry_1["temperature"]} Temp2 {telemetry_2["temperature"]}.'
         # )
         # if int(telemetry_1['temperature']) >= 50 or int(telemetry_2['temperature']) >= 50:
         #    raise ServoTemperatureTooHigh("Servo temperature too high.")
         signals, raw_data = self.sp.get_signals(offset, show_graph)
-        print("Signals found: ", len(signals))
-        for i, signal in enumerate(signals):
-            print(
-                f"[{i}] Signal from",
-                signal.start_freq,
-                "to",
-                signal.end_freq,
-                "with peak power of",
-                signal.peak_power_db,
-                " at freq ",
-                signal.peak_freq,
-            )
-        print("=====================================")
+        # print("Signals found: ", len(signals))
+        # for i, signal in enumerate(signals):
+        # print(
+        # f"[{i}] Signal from",
+        # signal.start_freq,
+        # "to",
+        # signal.end_freq,
+        # "with peak power of",
+        # signal.peak_power_db,
+        #  " at freq ",
+        #   signal.peak_freq,
+        # )
+        # print("=====================================")
         self.return_queue.put(
             (signals, raw_data, telemetry_1, telemetry_2), block=False, timeout=0
         )
+        return (signals, raw_data, telemetry_1, telemetry_2)
 
     def initialize(self):
         """Initialize the ESP32 controller and connect to the device."""

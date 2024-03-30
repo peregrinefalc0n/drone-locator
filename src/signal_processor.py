@@ -11,6 +11,11 @@ class Signal:
         self.peak_freq = peak_freq
         self.bandwidth = end_freq - start_freq
         self.center_freq = (end_freq + start_freq) / 2
+        self.x = None
+        self.y = None
+    
+    def to_string(self):
+        return f"Signal: {self.start_freq} - {self.end_freq} MHz, {self.peak_power_db} dBm, {self.peak_freq} MHz, position: {self.x}, {self.y}"
 
 class SignalProcessor:
     """ Class that processes signals. It takes a HackRF device id, sample rate, sample count, center frequency and amplifier state as arguments. \n
@@ -42,7 +47,7 @@ class SignalProcessor:
     
     def __process(self, offset = 10, show_graph = False):
         """Processes the samples and returns a list of signals that are above the noise floor by the given offset in dBm, and the raw data."""
-        pxx, freqs, line = psd(self.__measure(), NFFT=2048, Fs=self.hackrf.sample_rate/1e6, Fc=self.hackrf.center_freq/1e6, return_line=True)
+        pxx, freqs = psd(self.__measure(), NFFT=2048, Fs=self.hackrf.sample_rate/1e6, Fc=self.hackrf.center_freq/1e6, return_line=False)
         raw_data = [pxx, freqs]
 
         if show_graph:

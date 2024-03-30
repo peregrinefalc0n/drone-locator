@@ -1,3 +1,4 @@
+import math
 import dearpygui.dearpygui as dpg
 import dearpygui.demo as demo
 import dearpygui_map as dpg_map
@@ -50,8 +51,11 @@ def gui_query_thread_method():
 
         if command == "toggle_amplifier":
             device.sp.set_amplifier(not device.sp.hackrf.amplifier_on)
-            print(f"Amplifier is now: {device.sp.hackrf.amplifier_on}")
-            dpg.set_value("amplifier_status", f"Amplifier is {'on' if device.sp.hackrf.amplifier_on else 'off'}")
+            # print(f"Amplifier is now: {device.sp.hackrf.amplifier_on}")
+            dpg.set_value(
+                "amplifier_status",
+                f"Amplifier is {'on' if device.sp.hackrf.amplifier_on else 'off'}",
+            )
 
         if command == "set_sample_rate":
             device.sp.hackrf.sample_rate = device_sample_rate_from_gui
@@ -59,30 +63,33 @@ def gui_query_thread_method():
         if command == "set_sample_count":
             device.sp.sample_count = device_sample_count_from_gui
 
-        if command == "perform_full_scan":            
+        if command == "perform_full_scan":
             currently_scanning = True
             try:
-                device_thread = threading.Thread(target=perform_full_scan_method, daemon=True)
+                device_thread = threading.Thread(
+                    target=perform_full_scan_method, daemon=True
+                )
                 device_thread.start()
             except esp32_controller.stopEverything:
-                print("Device was stopped")
+                # print("Device was stopped")
                 device_thread = None
                 currently_scanning = False
-        
-        if command == "perform_horizontal_scan":            
+
+        if command == "perform_horizontal_scan":
             currently_scanning = True
             try:
-                device_thread = threading.Thread(target=perform_horizontal_scan_method, daemon=True)
+                device_thread = threading.Thread(
+                    target=perform_horizontal_scan_method, daemon=True
+                )
                 device_thread.start()
             except esp32_controller.stopEverything:
-                print("Device was stopped")
+                # print("Device was stopped")
                 currently_scanning = False
                 device_thread = None
 
-        
         if command == "move_antenna_front":
             device.go_to_forward()
-        
+
         if command == "perform_single_scan":
             device.perform_scan()
 
@@ -91,9 +98,10 @@ def perform_horizontal_scan_method():
     global inbound_data_queue, currently_scanning, horizontal_scan_points
     inbound_data_queue = device.return_queue
     try:
-        device.horizontal_sweep(number_of_points=horizontal_scan_points)
+        device.horizontal_sweep_precise(number_of_points=horizontal_scan_points)
+        currently_scanning = False
     except esp32_controller.stopEverything:
-        print("Device was stopped")
+        # print("Device was stopped")
         currently_scanning = False
 
 
@@ -102,8 +110,9 @@ def perform_full_scan_method():
     inbound_data_queue = device.return_queue
     try:
         device.full_sweep_optimal()
+        currently_scanning = False
     except esp32_controller.stopEverything:
-        print("Device was stopped")
+        # print("Device was stopped")
         currently_scanning = False
 
 
@@ -113,19 +122,19 @@ def import_data_thread_method():
 
         if not ready_to_query:
             continue
-        
+
         data = inbound_data_queue.get(block=True, timeout=None)
-        print("Data gotten:", len(data), len(data[0]), len(data[1]), len(data[2]), len(data[3]))
-        print("Raw:", len(data[1][0]), len(data[1][1]))
-        print(data[1][0][0:5])
-        print(data[1][1][0:5])
+        # print("Data gotten:", len(data), len(data[0]), len(data[1]), len(data[2]), len(data[3]))
+        # print("Raw:", len(data[1][0]), len(data[1][1]))
+        # print(data[1][0][0:5])
+        # print(data[1][1][0:5])
 
         if data is None:
             continue
-        
+
         signals = data[0]
         raw_data = data[1]
-        print(len(raw_data))
+        # print(len(raw_data))
         telem1 = data[2]
         telem2 = data[3]
         graph_data = raw_data
@@ -135,7 +144,6 @@ def import_data_thread_method():
         if telem2 is not None and type(telem2) is dict:
             telemetry_data_2 = telem2
 
-
         text = ""
         for signal in signals:
             text += f"Signal: {round(signal.start_freq, 4)} - {round(signal.end_freq, 4)} Hz, {signal.peak_power_db} dBm\n"
@@ -143,23 +151,23 @@ def import_data_thread_method():
 
 
 def button_callback(sender, app_data, user_data):
-    #print(f"sender is: {sender}")
-    #print(f"app_data is: {app_data}")
-    #print(f"user_data is: {user_data}")
+    # print(f"sender is: {sender}")
+    # print(f"app_data is: {app_data}")
+    # print(f"user_data is: {user_data}")
     if sender == "initialize_button":
         start_device()
     if sender == "start_full_scan_button":
         outbound_command_queue.put("perform_full_scan")
-        #dpg.disable_item("start_full_scan_button")
+        # dpg.disable_item("start_full_scan_button")
     if sender == "start_horizontal_scan_button":
         global horizontal_scan_points
         horizontal_scan_points = dpg.get_value("horizontal_scan_points")
-        #dpg.disable_item("perform_horizontal_scan_button")
+        # dpg.disable_item("perform_horizontal_scan_button")
         outbound_command_queue.put("perform_horizontal_scan")
     if sender == "stop_scan_button":
         outbound_command_queue.put("stop_device")
-        #dpg.enable_item("perform_horizontal_scan_button")
-        #dpg.enable_item("start_full_scan_button")
+        # dpg.enable_item("perform_horizontal_scan_button")
+        # dpg.enable_item("start_full_scan_button")
     if sender == "toggle_amplifier_button":
         outbound_command_queue.put("toggle_amplifier")
     if sender == "move_antenna_front_button":
@@ -187,7 +195,9 @@ def update_series():
     x = [v for v in graph_data[0]]
     y = [v for v in graph_data[1]]
     dpg.set_value("series_tag", [y, x])
-    dpg.set_item_label("series_tag", "Current Scan Data")
+
+    dpg.fit_axis_data("x_axis")
+    dpg.fit_axis_data("y_axis")
 
 
 def update_telemetry_table():
@@ -196,9 +206,6 @@ def update_telemetry_table():
     if telemetry_data_1 is None or telemetry_data_2 is None:
         return
 
-
-
-    
     dpg.set_value("pos_1", telemetry_data_1["position"])
     dpg.set_value("pos_2", telemetry_data_2["position"])
     dpg.set_value("speed_1", telemetry_data_1["speed"])
@@ -224,6 +231,104 @@ def add_to_console_table(message):
     dpg.set_value("console_row_1", dpg.get_value("console_row_1") + f"\n{message}")
 
 
+def calc_pos(offset):
+
+    # x_0,y_0 --- x_max,y_0
+    #  |            |
+    #  |            |
+    #  |            |
+    # x_0,y_max --- x_max,y_max
+
+    # Heading goes from 0 to 4096
+    # 2048 is north
+
+    x_0 = 200
+    y_0 = 100
+    x_max = 600
+    y_max = 500
+    center_x = (x_max - x_0) / 2
+    center_y = (y_max - y_0) / 2
+    # Method must draw arrow from center of circle towards the edge of the circle
+
+    if telemetry_data_1 is None:
+        return
+
+    heading = int(telemetry_data_1.get("position"))
+
+    if heading is None:
+        return
+
+    offset += 90
+    # convert offset of degrees to radians
+    offset = offset * 2 * math.pi / 360
+
+    # convert heading to angle in radians
+    angle = heading * 2 * math.pi / 4096
+    angle += offset
+    # find coordinates of the arrows tip on the circles edge (radius = 200) by using the angle
+    x = ((x_max + x_0) / 2) + 200 * math.cos(angle)
+    y = ((y_max + y_0) / 2) + 200 * math.sin(angle)
+    return (x, y)
+
+
+def update_signals_table():
+
+    for signal in device.active_signals:
+        sid = "signal_" + str(device.active_signals.index(signal))
+        if dpg.does_item_exist(sid):
+            dpg.delete_item(sid)
+        with dpg.table_row(
+            parent="signals_table",
+            tag=sid,
+        ):
+            dpg.add_text(sid)
+            dpg.add_text(signal.x)
+            dpg.add_text(signal.y)
+            dpg.add_text(signal.start_freq)
+            dpg.add_text(signal.end_freq)
+            dpg.add_text(signal.peak_power_db)
+            dpg.add_text(signal.peak_freq)
+
+                #signal.y,
+                #signal.start_freq,
+                #signal.end_freq,
+                #signal.peak_power_db,
+                #signal.peak_freq,
+
+
+def update_compass():
+
+    try:
+        dpg.delete_item("compass_15")
+        dpg.delete_item("compass_0")
+        dpg.delete_item("compass_-15")
+    except:
+        pass
+
+    dpg.draw_line(
+        p1=calc_pos(15),
+        p2=(400, 300),
+        color=(0, 255, 0, 255),
+        thickness=2,
+        parent="compass_drawlist",
+        tag="compass_15",
+    )
+    dpg.draw_line(
+        p1=calc_pos(0),
+        p2=(400, 300),
+        color=(0, 255, 0, 255),
+        thickness=4,
+        parent="compass_drawlist",
+        tag="compass_0",
+    )
+    dpg.draw_line(
+        p1=calc_pos(-15),
+        p2=(400, 300),
+        color=(0, 255, 0, 255),
+        thickness=2,
+        parent="compass_drawlist",
+        tag="compass_-15",
+    )
 
 
 def gui():
@@ -259,6 +364,7 @@ def gui():
                     label="HackRF ID",
                     default_value=0,
                     min_value=0,
+                    min_clamped=True,
                     max_value=255,
                     width=100,
                     callback=set_hackrf_id,
@@ -276,27 +382,140 @@ def gui():
                     enabled=False,
                 )
                 with dpg.group(horizontal=True):
-                    
-                    dpg.add_input_int(tag="horizontal_scan_points", default_value=16, min_value=1, max_value=1000, width=100)
-                    
-                    dpg.add_button(tag="start_horizontal_scan_button", label="Start Horizontal Scan", enabled=False, callback=button_callback)
-                
-                dpg.add_button(
-                    tag="stop_scan_button", label="Stop Scan", enabled=False, callback=button_callback
-                )
-                
-                dpg.add_button(tag="toggle_amplifier_button", enabled=False, label="Toggle Amplifier", callback=button_callback)
-                dpg.add_text(tag="amplifier_status", default_value="Amplifier is off")
-                
-                dpg.add_button(tag="move_antenna_front_button" , label="Move antenna to front", enabled=False, callback=button_callback)
-                
-                dpg.add_button(tag="perform_single_scan_button", label="Perform single scan", enabled=False, callback=button_callback)
 
-            dpg_map.add_map_widget(
-                    width=800,
-                    height=top_area_height,
-                    center=(60.1641, 24.9402),
-                    zoom_level=14,
+                    dpg.add_input_int(
+                        tag="horizontal_scan_points",
+                        default_value=16,
+                        min_value=1,
+                        max_value=1000,
+                        width=100,
+                    )
+
+                    dpg.add_button(
+                        tag="start_horizontal_scan_button",
+                        label="Start Horizontal Scan",
+                        enabled=False,
+                        callback=button_callback,
+                    )
+
+                dpg.add_button(
+                    tag="stop_scan_button",
+                    label="Stop Scan",
+                    enabled=False,
+                    callback=button_callback,
+                )
+
+                dpg.add_button(
+                    tag="toggle_amplifier_button",
+                    enabled=False,
+                    label="Toggle Amplifier",
+                    callback=button_callback,
+                )
+                dpg.add_text(tag="amplifier_status", default_value="Amplifier is off")
+
+                dpg.add_button(
+                    tag="move_antenna_front_button",
+                    label="Move antenna to front",
+                    enabled=False,
+                    callback=button_callback,
+                )
+
+                dpg.add_button(
+                    tag="perform_single_scan_button",
+                    label="Perform single scan",
+                    enabled=False,
+                    callback=button_callback,
+                )
+
+                # add inputs for :   device_center_frequency_from_gui
+                #                   device_sample_rate_from_gui
+                #                   device_sample_count_from_gui
+                dpg.add_input_float(
+                    label="Center frequency (MHz)",
+                    tag="center_frequency_input",
+                    default_value=5780e6,
+                    min_value=5718e6,
+                    max_value=5840e6,
+                    step=1e6,
+                    width=150,
+                    min_clamped=True,
+                    max_clamped=True,
+                )
+                dpg.add_input_float(
+                    label="Sample rate",
+                    tag="sample_rate_input",
+                    default_value=20e6,
+                    min_value=1e6,
+                    step=1e6,
+                    max_value=20e6,
+                    width=150,
+                    min_clamped=True,
+                    max_clamped=True,
+                )
+                dpg.add_input_float(
+                    label="Sample count",
+                    tag="sample_count_input",
+                    default_value=1e6,
+                    min_value=1e3,
+                    max_value=1e8,
+                    width=150,
+                    step=1_000,
+                    min_clamped=True,
+                    max_clamped=True,
+                )
+
+            # dpg_map.add_map_widget(
+            #        width=800,
+            #        height=top_area_height,
+            #        center=(60.1641, 24.9402),
+            #        zoom_level=14,
+            #    )
+            with dpg.drawlist(
+                width=800, height=top_area_height, tag="compass_drawlist"
+            ):
+                # dpg.draw_rectangle((200, 100), (600, 500), color=(255, 0, 0, 255), thickness=2, parent="compass_drawlist")
+                dpg.draw_arrow(
+                    (400, 80),
+                    (400, 300),
+                    color=(255, 255, 255, 255),
+                    thickness=4,
+                    parent="compass_drawlist",
+                )  # 0
+                dpg.draw_circle(
+                    (400, 300),
+                    200,
+                    color=(255, 255, 255, 255),
+                    thickness=2,
+                    parent="compass_drawlist",
+                )  # 1
+                dpg.draw_text(
+                    (410, 60),
+                    "Forward",
+                    color=(255, 255, 255, 255),
+                    size=30,
+                    parent="compass_drawlist",
+                )  # 2
+
+                dpg.draw_line(
+                    p1=calc_pos(15),
+                    p2=(400, 300),
+                    color=(0, 255, 0, 255),
+                    thickness=2,
+                    parent="compass_drawlist",
+                )
+                dpg.draw_line(
+                    p1=calc_pos(0),
+                    p2=(400, 300),
+                    color=(0, 255, 0, 255),
+                    thickness=4,
+                    parent="compass_drawlist",
+                )
+                dpg.draw_line(
+                    p1=calc_pos(-15),
+                    p2=(400, 300),
+                    color=(0, 255, 0, 255),
+                    thickness=2,
+                    parent="compass_drawlist",
                 )
 
             with dpg.child_window(
@@ -305,7 +524,19 @@ def gui():
                 no_scrollbar=True,
                 no_scroll_with_mouse=True,
             ):
-                dpg.add_text("Top right area")
+                dpg.add_text("Table of discovered signals")
+                with dpg.table(
+                    tag="signals_table",
+                    borders_innerH=True,
+                    borders_innerV=True
+                ):
+                    dpg.add_table_column(label="Signal ID")
+                    dpg.add_table_column(label="X")
+                    dpg.add_table_column(label="Y")
+                    dpg.add_table_column(label="Start Frequency")
+                    dpg.add_table_column(label="End Frequency")
+                    dpg.add_table_column(label="Peak Power")
+                    dpg.add_table_column(label="Peak Frequency")
 
         with dpg.group(label="bottom_area", horizontal=True):
 
@@ -360,17 +591,24 @@ def gui():
                 no_scroll_with_mouse=True,
                 border=False,
             ):
-                dpg.add_button(label="Update Series", callback=update_series)
+                # dpg.add_button(label="Update Series", callback=update_series)
                 # create plot
                 with dpg.plot(
-                    label="Last Scan Output", height=bottom_area_height, width=800,
+                    label="Last Scan Output",
+                    height=bottom_area_height,
+                    width=800,
                 ):
                     # optionally create legend
                     dpg.add_plot_legend()
 
                     # REQUIRED: create x and y axes
                     dpg.add_plot_axis(dpg.mvXAxis, label="Frequency (Hz)", tag="x_axis")
-                    dpg.add_plot_axis(dpg.mvYAxis, label="Signal Strength (dBm)", tag="y_axis", log_scale=False)
+                    dpg.add_plot_axis(
+                        dpg.mvYAxis,
+                        label="Signal Strength (dBm)",
+                        tag="y_axis",
+                        log_scale=True,
+                    )
 
                     # series belong to a y axis
                     dpg.add_line_series(
@@ -379,9 +617,8 @@ def gui():
                         label="HackRF Data",
                         parent="y_axis",
                         tag="series_tag",
-                        
                     )
-                    
+
             with dpg.child_window(
                 height=bottom_area_height,
                 width=370,
@@ -404,9 +641,13 @@ def gui():
     while dpg.is_dearpygui_running():
         if first_run:
             first_run = False
-            gui_query_thread = threading.Thread(target=gui_query_thread_method, daemon=True)
+            gui_query_thread = threading.Thread(
+                target=gui_query_thread_method, daemon=True
+            )
 
-            import_data_thread = threading.Thread(target=import_data_thread_method, daemon=True)
+            import_data_thread = threading.Thread(
+                target=import_data_thread_method, daemon=True
+            )
             import_data_thread.start()
             gui_query_thread.start()
 
@@ -415,36 +656,44 @@ def gui():
             # Things to do every second
             if current_time > slow_loop_timer + 0.5:
                 # Request data
-                if not currently_scanning:
-                    outbound_command_queue.put("get_telemetry")
-                # Update telemetry table
-                update_telemetry_table()
+                outbound_command_queue.put("get_telemetry")
                 slow_loop_timer = time.time()
 
-            if current_time > fast_loop_timer + 0.1:
+            if current_time > fast_loop_timer + (1 / 60):  # 60 fps
                 # Update series
+                update_global_variables()
                 update_series()
+                update_compass()
+                update_telemetry_table()
+                update_signals_table()
                 fast_loop_timer = time.time()
-                
-            
+
         dpg.render_dearpygui_frame()
 
     dpg.destroy_context()
 
 
+def update_global_variables():
+    global telemetry_data_1, telemetry_data_2, device_center_frequency_from_gui, device_sample_rate_from_gui, device_sample_count_from_gui
+    telemetry_data_1 = device.TELEMETRY_1
+    telemetry_data_2 = device.TELEMETRY_2
+    device_center_frequency_from_gui = dpg.get_value("center_frequency_input")
+    device_sample_rate_from_gui = dpg.get_value("sample_rate_input")
+    device_sample_count_from_gui = dpg.get_value("sample_count_input")
+
 
 # Gui stuff
 top_area_height = 550
-bottom_area_height = 350
+bottom_area_height = 385
 
 # Device stuff
 hackrf_id = 0
 device = None
 sp = None
 
-device_center_frequency_from_gui = 0
-device_sample_rate_from_gui = 0
-device_sample_count_from_gui = 0
+device_center_frequency_from_gui = 0.0
+device_sample_rate_from_gui = 0.0
+device_sample_count_from_gui = 0.0
 device_amplifier = False
 
 
