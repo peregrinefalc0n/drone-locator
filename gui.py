@@ -35,6 +35,8 @@ def gui_query_thread_method():
             dpg.enable_item("move_antenna_front_button")
             dpg.enable_item("perform_single_scan_button")
             dpg.enable_item("start_horizontal_scan_button")
+            dpg.enable_item("continuously_scan_button")
+            dpg.enable_item("update_parameters_button")
 
         if command == "stop_device":
             device.stop()
@@ -45,23 +47,6 @@ def gui_query_thread_method():
             else:
                 telemetry_data_1 = device.get_telemetry(1)
                 telemetry_data_2 = device.get_telemetry(2)
-
-        if command == "set_frequency":
-            device.sp.hackrf.center_freq = device_center_frequency_from_gui
-
-        if command == "toggle_amplifier":
-            device.sp.set_amplifier(not device.sp.hackrf.amplifier_on)
-            # print(f"Amplifier is now: {device.sp.hackrf.amplifier_on}")
-            dpg.set_value(
-                "amplifier_status",
-                f"Amplifier is {'on' if device.sp.hackrf.amplifier_on else 'off'}",
-            )
-
-        if command == "set_sample_rate":
-            device.sp.hackrf.sample_rate = device_sample_rate_from_gui
-
-        if command == "set_sample_count":
-            device.sp.sample_count = device_sample_count_from_gui
 
         if command == "perform_full_scan":
             currently_scanning = True
@@ -93,6 +78,17 @@ def gui_query_thread_method():
         if command == "perform_single_scan":
             device.perform_scan()
 
+        if command == "continuously_scan":
+            currently_scanning = True
+            try:
+                device_thread = threading.Thread(
+                    target=perform_continuous_scan_method, daemon=True
+                )
+                device_thread.start()
+            except esp32_controller.stopEverything:
+                # print("Device was stopped")
+                currently_scanning = False
+                device_thread = None
 
 def perform_horizontal_scan_method():
     global inbound_data_queue, currently_scanning, horizontal_scan_points
@@ -115,6 +111,16 @@ def perform_full_scan_method():
         # print("Device was stopped")
         currently_scanning = False
 
+
+def perform_continuous_scan_method():
+    global inbound_data_queue, currently_scanning
+    inbound_data_queue = device.return_queue
+    try:
+        device.continuously_scan()
+    except esp32_controller.stopEverything:
+        # print("Device was stopped")
+        currently_scanning = False
+    
 
 def import_data_thread_method():
     while True:
@@ -151,29 +157,40 @@ def import_data_thread_method():
 
 
 def button_callback(sender, app_data, user_data):
+    global device, horizontal_scan_points, device_sample_rate_from_gui, device_center_frequency_from_gui
     # print(f"sender is: {sender}")
     # print(f"app_data is: {app_data}")
     # print(f"user_data is: {user_data}")
     if sender == "initialize_button":
         start_device()
-    if sender == "start_full_scan_button":
+    elif sender == "start_full_scan_button":
         outbound_command_queue.put("perform_full_scan")
         # dpg.disable_item("start_full_scan_button")
-    if sender == "start_horizontal_scan_button":
-        global horizontal_scan_points
+    elif sender == "start_horizontal_scan_button":
         horizontal_scan_points = dpg.get_value("horizontal_scan_points")
         # dpg.disable_item("perform_horizontal_scan_button")
         outbound_command_queue.put("perform_horizontal_scan")
-    if sender == "stop_scan_button":
+    elif sender == "stop_scan_button":
         outbound_command_queue.put("stop_device")
         # dpg.enable_item("perform_horizontal_scan_button")
         # dpg.enable_item("start_full_scan_button")
-    if sender == "toggle_amplifier_button":
-        outbound_command_queue.put("toggle_amplifier")
-    if sender == "move_antenna_front_button":
+    elif sender == "toggle_amplifier_button":
+        device.sp.set_amplifier(not device.sp.hackrf.amplifier_on)
+        # print(f"Amplifier is now: {device.sp.hackrf.amplifier_on}")
+        dpg.set_value(
+            "amplifier_status",
+            f"Amplifier is {'on' if device.sp.hackrf.amplifier_on else 'off'}",
+        )
+    elif sender == "move_antenna_front_button":
         outbound_command_queue.put("move_antenna_front")
-    if sender == "perform_single_scan_button":
+    elif sender == "perform_single_scan_button":
         outbound_command_queue.put("perform_single_scan")
+    elif sender == "continuously_scan_button":
+        outbound_command_queue.put("continuously_scan")
+    elif sender == "update_parameters_button":
+        device.sp.hackrf.sample_rate = device_sample_rate_from_gui
+        device.sp.hackrf.center_freq = device_center_frequency_from_gui
+        device.sp.sample_count = device_sample_count_from_gui
 
 
 def set_hackrf_id(sender):
@@ -289,11 +306,11 @@ def update_signals_table():
             dpg.add_text(signal.peak_power_db)
             dpg.add_text(signal.peak_freq)
 
-                #signal.y,
-                #signal.start_freq,
-                #signal.end_freq,
-                #signal.peak_power_db,
-                #signal.peak_freq,
+            # signal.y,
+            # signal.start_freq,
+            # signal.end_freq,
+            # signal.peak_power_db,
+            # signal.peak_freq,
 
 
 def update_compass():
@@ -360,19 +377,30 @@ def gui():
                 no_scrollbar=True,
                 no_scroll_with_mouse=True,
             ):
-                dpg.add_input_int(
-                    label="HackRF ID",
-                    default_value=0,
-                    min_value=0,
-                    min_clamped=True,
-                    max_value=255,
-                    width=100,
-                    callback=set_hackrf_id,
-                )
+                with dpg.group(horizontal=True):
+                    dpg.add_button(
+                        tag="initialize_button",
+                        label="Initialize Device",
+                        callback=button_callback,
+                    )
+                    dpg.add_input_int(
+                        label="HackRF ID",
+                        default_value=0,
+                        min_value=0,
+                        min_clamped=True,
+                        max_value=255,
+                        width=100,
+                        callback=set_hackrf_id,
+                    )
+                    
+                dpg.add_spacer(height=15)
+
                 dpg.add_button(
-                    tag="initialize_button",
-                    label="Initialize Device",
+                    tag="move_antenna_front_button",
+                    label="Move antenna to front",
+                    enabled=False,
                     callback=button_callback,
+                    width=175
                 )
 
                 dpg.add_button(
@@ -380,9 +408,18 @@ def gui():
                     label="Start Full Scan",
                     callback=button_callback,
                     enabled=False,
+                    width=175
                 )
+                
                 with dpg.group(horizontal=True):
-
+                    dpg.add_button(
+                        tag="start_horizontal_scan_button",
+                        label="Start Horizontal Scan",
+                        enabled=False,
+                        callback=button_callback,
+                        width=175
+                    )
+                    dpg.add_spacer(width=9)
                     dpg.add_input_int(
                         tag="horizontal_scan_points",
                         default_value=16,
@@ -390,13 +427,25 @@ def gui():
                         max_value=1000,
                         width=100,
                     )
+                
+                dpg.add_button(
+                    tag="perform_single_scan_button",
+                    label="Perform single scan at current position",
+                    enabled=False,
+                    callback=button_callback,
+                    width=300
+                )
 
-                    dpg.add_button(
-                        tag="start_horizontal_scan_button",
-                        label="Start Horizontal Scan",
-                        enabled=False,
-                        callback=button_callback,
-                    )
+                dpg.add_button(
+                    tag="continuously_scan_button",
+                    label="Continuously scan at current position",
+                    enabled=False,
+                    callback=button_callback,
+                    width=300
+
+                )
+                
+                dpg.add_spacer(height=15)
 
                 dpg.add_button(
                     tag="stop_scan_button",
@@ -405,27 +454,22 @@ def gui():
                     callback=button_callback,
                 )
 
-                dpg.add_button(
-                    tag="toggle_amplifier_button",
-                    enabled=False,
-                    label="Toggle Amplifier",
-                    callback=button_callback,
-                )
-                dpg.add_text(tag="amplifier_status", default_value="Amplifier is off")
+                dpg.add_spacer(height=15)
 
-                dpg.add_button(
-                    tag="move_antenna_front_button",
-                    label="Move antenna to front",
-                    enabled=False,
-                    callback=button_callback,
-                )
 
-                dpg.add_button(
-                    tag="perform_single_scan_button",
-                    label="Perform single scan",
-                    enabled=False,
-                    callback=button_callback,
-                )
+                with dpg.group(horizontal=True):
+                    dpg.add_button(
+                        tag="toggle_amplifier_button",
+                        enabled=False,
+                        label="Toggle Amplifier",
+                        callback=button_callback,
+                        width=150
+                    )
+                    
+                    #dpg.add_spacer(width=18)
+
+                    dpg.add_text(tag="amplifier_status", default_value="Amplifier is off")
+
 
                 # add inputs for :   device_center_frequency_from_gui
                 #                   device_sample_rate_from_gui
@@ -463,6 +507,7 @@ def gui():
                     min_clamped=True,
                     max_clamped=True,
                 )
+                dpg.add_button(tag="update_parameters_button", label="Update Parameters", callback=button_callback, enabled=False, width=150)
 
             # dpg_map.add_map_widget(
             #        width=800,
@@ -526,9 +571,7 @@ def gui():
             ):
                 dpg.add_text("Table of discovered signals")
                 with dpg.table(
-                    tag="signals_table",
-                    borders_innerH=True,
-                    borders_innerV=True
+                    tag="signals_table", borders_innerH=True, borders_innerV=True
                 ):
                     dpg.add_table_column(label="Signal ID")
                     dpg.add_table_column(label="X")
@@ -602,7 +645,7 @@ def gui():
                     dpg.add_plot_legend()
 
                     # REQUIRED: create x and y axes
-                    dpg.add_plot_axis(dpg.mvXAxis, label="Frequency (Hz)", tag="x_axis")
+                    dpg.add_plot_axis(dpg.mvXAxis, label="Frequency (MHz)", tag="x_axis")
                     dpg.add_plot_axis(
                         dpg.mvYAxis,
                         label="Signal Strength (dBm)",

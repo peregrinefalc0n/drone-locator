@@ -536,6 +536,16 @@ class ESP32Controller:
         self.__move_to(2, 1024)
         # self.__syncmove_to(1, 2, 2048, 1024)
 
+    
+    def continuously_scan(self):
+        
+        while not self.stop_everything:
+            signals, raw_data, telemetry_1, telemetry_2 = self.perform_scan(offset=10, show_graph=False)
+            self.return_queue.put((signals, raw_data, telemetry_1, telemetry_2), block=False, timeout=0)
+        else:
+            self.stop_everything = False
+            raise stopEverything("User stopped infinite scan.")
+    
     def perform_scan(
         self, offset=10, show_graph=False
     ) -> tuple[list[signal_processor.Signal], list, dict[str, int], dict[str, int]]:
