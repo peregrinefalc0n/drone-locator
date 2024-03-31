@@ -442,8 +442,11 @@ class ESP32Controller:
                                 # and self.__inRange(x, existing_signal.x, 10)
                                 # and self.__inRange(y, existing_signal.y, 10)
                             ):
-                                # found existing signal, update it
+                                # found existing signal and its stronger, update it
                                 this_signal_is_new = False
+                                if signal.peak_power_db < existing_signal.peak_power_db:
+                                    continue
+
                                 (
                                     x_return,
                                     y_return,
@@ -457,7 +460,7 @@ class ESP32Controller:
                                     signal.start_freq,
                                     signal.end_freq,
                                 )
-                                if signal_power_return > existing_signal.peak_power_db:
+                                if signal_power_return >= existing_signal.peak_power_db:
                                     print("Found a stronger signal position: ", x_return, y_return)
                                     # update existing signal with new data
                                     existing_signal.x = x_return

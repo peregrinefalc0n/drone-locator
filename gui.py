@@ -152,7 +152,7 @@ def import_data_thread_method():
 
         text = ""
         for signal in signals:
-            text += f"Signal: {round(signal.start_freq, 4)} - {round(signal.end_freq, 4)} Hz, {signal.peak_power_db} dBm\n"
+            text += f"Signal: {round(signal.start_freq, 4)} - {round(signal.end_freq, 4)} MHz at {signal.peak_power_db} dBm\n"
         add_to_console_table(text)
 
 
@@ -245,7 +245,9 @@ def add_to_console_table(message):
     if len(message) == 0:
         return
     message = f'{time.strftime("%H:%M:%S")}] - {message}'
-    dpg.set_value("console_row_1", dpg.get_value("console_row_1") + f"\n{message}")
+    dpg.add_text(message, parent="console_window")
+    if dpg.get_y_scroll_max("console_window") > 0:
+        dpg.set_y_scroll("console_window", dpg.get_y_scroll_max("console_window"))
 
 
 def calc_pos(offset):
@@ -667,6 +669,8 @@ def gui():
                 width=370,
                 no_scrollbar=False,
                 no_scroll_with_mouse=False,
+                tag="console_window",
+                
             ):
                 dpg.add_text("Console log", tag="console_row_1")
 
