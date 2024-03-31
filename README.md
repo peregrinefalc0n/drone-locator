@@ -5,6 +5,7 @@ This repository contains code to install on a Waveshare ESP32 powered servo cont
 Bachelors project
 
 ## Installation
+NOT UP TO DATE RIGHT NOW
 
 The project uses [pyhackrf2](https://pypi.org/project/pyhackrf2/) and [pyserial](https://pypi.org/project/pyserial/).
 
