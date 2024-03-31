@@ -1,4 +1,7 @@
 # drone-locator
+
+This repository contains code to install on a Waveshare ESP32 powered servo controller + a pythong GUI program to communicate and control the ESP32 with its servos and a HackRF device.
+
 Bachelors project
 
 ## Installation
