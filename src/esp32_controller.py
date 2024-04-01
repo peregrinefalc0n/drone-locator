@@ -113,7 +113,7 @@ class ESP32Controller:
         """Check if the future y-axis location is within the bounds of the vertical servo safe operation. \n
         These values should be edited if servo movement range is expanded or reduced on the physical device.
         """
-        return 1000 <= location <= 2072
+        return 900 <= location <= 2072
 
     def __inRange(self, actual, expected, range):
         """Check if the actual value is within the expected value with a given range."""
@@ -152,8 +152,8 @@ class ESP32Controller:
             # y-axis squishing
             if y > 2072:
                 y = 2048
-            if y < 1000:
-                y = 1024
+            if y < 900:
+                y = 900
 
             # x-axis squishing
             if x > 4096:
@@ -405,6 +405,9 @@ class ESP32Controller:
                 if skip_first:
                     skip_first = False
                     continue
+                
+                if not self.__inRange(self.CURRENT_POSITION_2, y_level, 10):
+                    self.__move_to(2, y_level)
                 self.__move_to_and_wait_for_complete(1, x_position[1])
                 scan_data = self.perform_scan(offset=10, show_graph=show_graph)
                 # x,y,start_freq,end_freq,peak_freq,peak_power_db
