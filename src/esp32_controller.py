@@ -394,9 +394,14 @@ class ESP32Controller:
 
         reverse = False
         skip_first = False
-        if True: #remove this
-            current_run_signals = []
-            for x_position in reversed(x_positions) if reverse else x_positions:
+
+        while not self.stop_everything: #continious sweeping
+            for s in self.active_signals:
+                s.update_sweep_list() #add an empty sweep list to populate in each signals history list
+                if not skip_first:                    
+                    s.inc_sweep_id() #increment the sweep id for each signal
+
+            for x_position in reversed(x_positions) if reverse else x_positions: #reverse the sweep direction every time, to minimise unnecessary traversal
                 if skip_first:
                     skip_first = False
                     continue
@@ -409,7 +414,6 @@ class ESP32Controller:
                 # end_freq = scan_data[0][0].end_freq
                 # peak_freq = scan_data[0][0].peak_freq
                 # peak_power_db = scan_data[0][0].peak_power_db
-
                 if len(scan_data[0]) > 0:  # if we got signals on this scan
                     for signal in scan_data[0]:
                         print("Found signals:", len(scan_data[0]))
@@ -417,8 +421,8 @@ class ESP32Controller:
                             signal.x = x
                             signal.y = y
                             self.active_signals.append(signal)
-                            print("!active signals == 0! Added completely new signal to active signals", signal.to_string())
-                        
+                            print("[len(active signals) == 0] Added completely new signal to active signals", signal.to_string())
+                            signal.update_sweep_list()    
                         
                         # check if signal is already in active signals, if it is, update it
                         this_signal_is_new = True
@@ -442,11 +446,19 @@ class ESP32Controller:
                                 # and self.__inRange(x, existing_signal.x, 10)
                                 # and self.__inRange(y, existing_signal.y, 10)
                             ):
-                                # found existing signal and its stronger, update it
+                                # found existing signal
                                 this_signal_is_new = False
+                                
+                                #update this signal's position history
+                                if len(existing_signal.position_history) < existing_signal.sweep_id + 1:
+                                    existing_signal.update_sweep_list()
+
+                                existing_signal.position_history[existing_signal.sweep_id].append([x, y, signal.peak_power_db])
+                                
+                                #its not stronger, skip the recursive 8-point check
                                 if signal.peak_power_db < existing_signal.peak_power_db:
                                     continue
-
+                                #its stronger, first check if an even stronger is nearby
                                 (
                                     x_return,
                                     y_return,
@@ -460,29 +472,30 @@ class ESP32Controller:
                                     signal.start_freq,
                                     signal.end_freq,
                                 )
-                                if signal_power_return >= existing_signal.peak_power_db:
-                                    print("Found a stronger signal position: ", x_return, y_return)
-                                    # update existing signal with new data
-                                    existing_signal.x = x_return
-                                    existing_signal.y = y_return
-                                    existing_signal.peak_freq = signal_frequency_return
-                                    existing_signal.peak_power_db = signal_power_return
-                                    existing_signal.start_freq = signal.start_freq
-                                    existing_signal.end_freq = signal.end_freq
-                                    # x,y,signal
-                                    break
+                                print("Found a stronger signal position: ", x_return, y_return)
+                                # update existing signal with new stronger signal position data
+                                existing_signal.x = x_return
+                                existing_signal.y = y_return
+                                existing_signal.peak_freq = signal_frequency_return
+                                existing_signal.peak_power_db = signal_power_return
+                                existing_signal.start_freq = signal.start_freq
+                                existing_signal.end_freq = signal.end_freq
+                                # x,y,signal
+                                break
                         if this_signal_is_new:
                             signal.x = x
                             signal.y = y
                             self.active_signals.append(signal)
                             print("Added new signal to active signals", signal.to_string())
-                        
-                                        
+                            signal.update_sweep_list()
+            existing_signal.inc_sweep_id()
                 # self.return_queue.put((signals, raw_data, telem1, telem2), block=False, timeout=0)
                 # print(len(signals), len(raw_data), len(telem1), len(telem2))
-
+            #while loop variables
             reverse = not reverse
             skip_first = True
+        else:
+            raise stopEverything("User stopped infinite horizontal precise scan.")   
 
     def find_strongest_point_of_signal(
         self,

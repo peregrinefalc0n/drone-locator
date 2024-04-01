@@ -250,7 +250,7 @@ def add_to_console_table(message):
         dpg.set_y_scroll("console_window", dpg.get_y_scroll_max("console_window"))
 
 
-def calc_pos(offset):
+def calc_compass_antenna_pos(offset):
 
     # x_0,y_0 --- x_max,y_0
     #  |            |
@@ -290,6 +290,74 @@ def calc_pos(offset):
     return (x, y)
 
 
+def draw_signals_on_compass():
+    """Method to draw short lines according to the strength of the signal on the outside of the compass ring. The length of the line is propertional to signal's strength. Each signal gets its own color. """
+    #get starting point of signal line (point on the circle)
+    global device
+
+    if device.active_signals is None or len(device.active_signals) == 0:
+        return
+    
+    for i,signal in enumerate(device.active_signals):
+        # get the signal's direction and strength
+        sid = signal.id
+        signal_direction = signal.x
+        signal_strength = signal.peak_power_db
+        signal_id = f"signal_strength_line_{sid}"
+        
+        #offset adjustment (add 90 degrees to the position of each signal line)
+        offset = 1024
+        
+        #calculate the length of the signals line (Signals strength is in dBm, ranging from -60 to 15. We must convert that to a value between 0 and 50 pixels.)
+        length = 50 * (signal_strength + 60) // 75
+
+        #calculate starting points of the signal line on the compass circle
+        x_start = 400 + 200 * math.cos((signal_direction + offset) * 2 * math.pi / 4096)
+        y_start = 300 + 200 * math.sin((signal_direction + offset) * 2 * math.pi / 4096)
+        
+        # calculate the end point of the line (it is at max 20pixels length)
+        x_end = x_start + length * math.cos((signal_direction + offset) * 2 * math.pi / 4096)
+        y_end = y_start + length * math.sin((signal_direction + offset) * 2 * math.pi / 4096)
+        
+        #find the max points where the signal could go (for the end dot)
+        x_max = x_start + 50 * math.cos((signal_direction + offset) * 2 * math.pi / 4096)
+        y_max = y_start + 50 * math.sin((signal_direction + offset) * 2 * math.pi / 4096)
+        
+        # pick a color
+        signal_color = color_list[i]
+        
+        if dpg.does_item_exist(f"{signal_id}_line"):
+            dpg.delete_item(f"{signal_id}_line")
+            dpg.delete_item(f"{signal_id}_text")
+            dpg.delete_item(f"{signal_id}_circle")
+        #write signal's strength as a number
+        dpg.draw_text(pos=(x_max, y_max), text=f"{round(signal_strength, 3)}",tag=f"{signal_id}_text", color=signal_color, size=18, parent="compass_drawlist") 
+        # draw the signals strength line
+        dpg.draw_line(p1=(x_start, y_start), p2=(x_end, y_end), tag=f"{signal_id}_line", color=signal_color, thickness=2, parent="compass_drawlist")
+        #draw a point at the max possible signal length
+        dpg.draw_circle((x_max, y_max), 2, tag=f"{signal_id}_circle", color=signal_color, thickness=2, parent="compass_drawlist")
+        #else:
+            #dpg.set_value(signal_id, ((x_start, y_start), (x_end, y_end)))
+            #dpg.set_value(signal_id+"text", (x_end, y_end), f"{round(signal_strength, 3)}")
+            #dpg.set_value(signal_id+"circle", (x_max, y_max))
+        
+        #global telemetry_data_1
+        #for this signal, also draw its position history lines
+        for i, sweep in enumerate(signal.position_history):
+            for j, position in enumerate(sweep):
+                x_start = 400 + 200 * math.cos((position[0] + offset) * 2 * math.pi / 4096)
+                y_start = 300 + 200 * math.sin((position[0] + offset) * 2 * math.pi / 4096)
+                length_h = 50 * (position[2] + 60) // 75
+
+                x_end = x_start + length_h * math.cos((position[0] + offset) * 2 * math.pi / 4096)
+                y_end = y_start + length_h * math.sin((position[0] + offset) * 2 * math.pi / 4096)
+                
+                if not dpg.does_item_exist(f"signal_history_line_{sid}_{i}_{j}"):
+                    dpg.draw_line(p1=(x_start, y_start), p2=(x_end, y_end),tag=f"signal_history_line_{sid}_{i}_{j}", color=signal_color, thickness=1, parent="compass_drawlist")
+                
+        
+
+
 def update_signals_table():
 
     for signal in device.active_signals:
@@ -325,7 +393,7 @@ def update_compass():
         pass
 
     dpg.draw_line(
-        p1=calc_pos(15),
+        p1=calc_compass_antenna_pos(15),
         p2=(400, 300),
         color=(0, 255, 0, 255),
         thickness=2,
@@ -333,7 +401,7 @@ def update_compass():
         tag="compass_15",
     )
     dpg.draw_line(
-        p1=calc_pos(0),
+        p1=calc_compass_antenna_pos(0),
         p2=(400, 300),
         color=(0, 255, 0, 255),
         thickness=4,
@@ -341,7 +409,7 @@ def update_compass():
         tag="compass_0",
     )
     dpg.draw_line(
-        p1=calc_pos(-15),
+        p1=calc_compass_antenna_pos(-15),
         p2=(400, 300),
         color=(0, 255, 0, 255),
         thickness=2,
@@ -479,7 +547,7 @@ def gui():
                 dpg.add_input_float(
                     label="Center frequency (MHz)",
                     tag="center_frequency_input",
-                    default_value=5780e6,
+                    default_value=5798998528.000,
                     min_value=5718e6,
                     max_value=5840e6,
                     step=1e6,
@@ -544,21 +612,21 @@ def gui():
                 )  # 2
 
                 dpg.draw_line(
-                    p1=calc_pos(15),
+                    p1=calc_compass_antenna_pos(15),
                     p2=(400, 300),
                     color=(0, 255, 0, 255),
                     thickness=2,
                     parent="compass_drawlist",
                 )
                 dpg.draw_line(
-                    p1=calc_pos(0),
+                    p1=calc_compass_antenna_pos(0),
                     p2=(400, 300),
                     color=(0, 255, 0, 255),
                     thickness=4,
                     parent="compass_drawlist",
                 )
                 dpg.draw_line(
-                    p1=calc_pos(-15),
+                    p1=calc_compass_antenna_pos(-15),
                     p2=(400, 300),
                     color=(0, 255, 0, 255),
                     thickness=2,
@@ -704,6 +772,10 @@ def gui():
             if current_time > slow_loop_timer + 0.5:
                 # Request data
                 outbound_command_queue.put("get_telemetry")
+                update_compass()
+                update_telemetry_table()
+                update_signals_table()
+                draw_signals_on_compass()
                 slow_loop_timer = time.time()
 
             if current_time > fast_loop_timer + (1 / 60):  # 60 fps
@@ -713,6 +785,7 @@ def gui():
                 update_compass()
                 update_telemetry_table()
                 update_signals_table()
+                draw_signals_on_compass()
                 fast_loop_timer = time.time()
 
         dpg.render_dearpygui_frame()
@@ -752,6 +825,9 @@ horizontal_scan_points = 16
 telemetry_data_1 = None
 telemetry_data_2 = None
 graph_data = None
+
+#make a list of colors for the signals to be drawn (16 colors, adjacent colors are as different as possible, not white or black)
+color_list = [(255, 0, 0, 255), (0, 255, 0, 255), (0, 0, 255, 255), (255, 255, 0, 255), (255, 0, 255, 255), (0, 255, 255, 255), (255, 128, 0, 255), (255, 0, 128, 255), (0, 255, 128, 255), (128, 255, 0, 255), (0, 128, 255, 255), (128, 0, 255, 255), (255, 128, 128, 255), (128, 255, 128, 255), (128, 128, 255, 255), (255, 255, 128, 255)]
 
 outbound_command_queue = queue.Queue()
 inbound_data_queue = queue.Queue()

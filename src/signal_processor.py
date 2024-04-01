@@ -2,9 +2,12 @@ from pyhackrf2 import HackRF
 import numpy as np
 from matplotlib.pyplot import psd, xlabel, ylabel, show
 
+id = 0
+
 class Signal:
     """Class that represents a signal"""
     def __init__(self, start_freq, end_freq, peak_power_db, peak_freq):
+        self.id = self.new_id()
         self.start_freq = start_freq
         self.end_freq = end_freq
         self.peak_power_db = peak_power_db
@@ -13,10 +16,27 @@ class Signal:
         self.center_freq = (end_freq + start_freq) / 2
         self.x = None
         self.y = None
+        
+        #List of lists where each inner list is a sweep's worth of signals positions tuples (x, y, strength_in_dbm)
+        #inner list index is the sweep id/number
+        self.position_history = list(list())
+        self.sweep_id = 0
     
     def to_string(self):
         return f"Signal: {self.start_freq} - {self.end_freq} MHz, {self.peak_power_db} dBm, {self.peak_freq} MHz, position: {self.x}, {self.y}"
 
+    def new_id(self):
+        global id
+        id += 1
+        return id
+    
+    def inc_sweep_id(self):
+        self.sweep_id += 1
+        
+    def update_sweep_list(self):
+        while len(self.position_history) < self.sweep_id + 1:
+            self.position_history.append(list())
+    
 class SignalProcessor:
     """ Class that processes signals. It takes a HackRF device id, sample rate, sample count, center frequency and amplifier state as arguments. \n
         Method get_signals returns a list of signals that are above the noise floor by the given offset in dBm. \n"""
