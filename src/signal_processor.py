@@ -40,7 +40,7 @@ class Signal:
 class SignalProcessor:
     """ Class that processes signals. It takes a HackRF device id, sample rate, sample count, center frequency and amplifier state as arguments. \n
         Method get_signals returns a list of signals that are above the noise floor by the given offset in dBm. \n"""
-    def __init__(self, id, sample_rate=20e6, sample_count=1e6, center_freq=5780e6, amplifier_on=False):
+    def __init__(self, id, sample_rate=20e6, sample_count=1e6, center_freq=5780e6):
         self.device_id = id
         self.sample_count = sample_count
         #self.sample_rate = sample_rate
@@ -50,15 +50,17 @@ class SignalProcessor:
         self.hackrf = HackRF(device_index=self.device_id)
         self.hackrf.sample_rate = sample_rate
         self.hackrf.center_freq = center_freq
-        self.hackrf.amplifier_on = amplifier_on
+
 
     def set_amplifier(self, state):
         """Sets the amplifier state to the provided state."""
-        self.hackrf._amplifier_on = state
+        self.hackrf.amplifier_on = state
 
     def __mW_to_dBm(self, power):
         """Converts power in mW to dBm"""
         return np.around(10 * np.log10(power/1), 2)
+    
+
     
     def __measure(self):
         """Measures the samples and returns them"""

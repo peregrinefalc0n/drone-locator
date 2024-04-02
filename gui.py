@@ -12,7 +12,7 @@ import queue
 
 def gui_query_thread_method():
     while True:
-        global hackrf_id, sp, ready_to_query, telemetry_data_1, telemetry_data_2, device_center_frequency_from_gui, device_sample_rate_from_gui, device_sample_count_from_gui, device_amplifier, currently_scanning, device, inbound_data_queue
+        global hackrf_id, sp, ready_to_query, telemetry_data_1, telemetry_data_2, device_center_frequency_from_gui, device_sample_rate_from_gui, device_sample_count_from_gui, device_amplifier, currently_scanning, device, inbound_data_queue, device_vga_gain_from_gui
 
         command = outbound_command_queue.get(block=True, timeout=None)
         # print(f"Command received: {command}")
@@ -26,6 +26,7 @@ def gui_query_thread_method():
             device_sample_rate_from_gui = device.sp.hackrf.sample_rate
             device_sample_count_from_gui = device.sp.sample_count
             device_amplifier = device.sp.hackrf.amplifier_on
+            device_vga_gain_from_gui = device.sp.hackrf.vga_gain
             inbound_data_queue = device.return_queue
 
             ready_to_query = True
@@ -91,10 +92,10 @@ def gui_query_thread_method():
                 device_thread = None
 
 def perform_horizontal_scan_method():
-    global inbound_data_queue, currently_scanning, horizontal_scan_points
+    global inbound_data_queue, currently_scanning, horizontal_scan_points, horizontal_scan_elevation
     inbound_data_queue = device.return_queue
     try:
-        device.horizontal_sweep_precise(number_of_points=horizontal_scan_points)
+        device.horizontal_sweep_precise(number_of_points=horizontal_scan_points, y_level=horizontal_scan_elevation)
         currently_scanning = False
     except esp32_controller.stopEverything:
         # print("Device was stopped")
@@ -157,7 +158,7 @@ def import_data_thread_method():
 
 
 def button_callback(sender, app_data, user_data):
-    global device, horizontal_scan_points, device_sample_rate_from_gui, device_center_frequency_from_gui
+    global device, horizontal_scan_points, device_sample_rate_from_gui, device_center_frequency_from_gui, horizontal_scan_elevation
     # print(f"sender is: {sender}")
     # print(f"app_data is: {app_data}")
     # print(f"user_data is: {user_data}")
@@ -167,7 +168,9 @@ def button_callback(sender, app_data, user_data):
         outbound_command_queue.put("perform_full_scan")
         # dpg.disable_item("start_full_scan_button")
     elif sender == "start_horizontal_scan_button":
+        #update global variables
         horizontal_scan_points = dpg.get_value("horizontal_scan_points")
+        horizontal_scan_elevation = dpg.get_value("horizontal_scan_elevation")
         # dpg.disable_item("perform_horizontal_scan_button")
         outbound_command_queue.put("perform_horizontal_scan")
     elif sender == "stop_scan_button":
@@ -209,8 +212,17 @@ def update_series():
         return
     if len(graph_data[0]) == 0 or len(graph_data[1]) == 0:
         return
+    
+    
     x = [v for v in graph_data[0]]
     y = [v for v in graph_data[1]]
+    
+    if remove_dc_spike:
+        #find the average of the y values
+        x_avg = sum(x[0:1000]) / 1000
+        #replace DC spike with average value
+        x = [x_avg if i in range(1012, 1036) else val for i, val in enumerate(graph_data[0])]
+        
     dpg.set_value("series_tag", [y, x])
 
     dpg.fit_axis_data("x_axis")
@@ -424,7 +436,6 @@ def gui():
         title="Drone Locator GUI", width=1600, height=1000, resizable=False
     )
     with dpg.window(
-        label="Dear PyGui Demo",
         width=1600,
         height=1000,
         pos=(0, 0),
@@ -489,13 +500,27 @@ def gui():
                         callback=button_callback,
                         width=175
                     )
-                    dpg.add_spacer(width=9)
+                    #dpg.add_spacer(width=0)
                     dpg.add_input_int(
                         tag="horizontal_scan_points",
-                        default_value=16,
+                        label="n",
+                        default_value=32,
                         min_value=1,
-                        max_value=1000,
-                        width=100,
+                        max_value=4096,
+                        width=80,
+                        min_clamped=True,
+                        max_clamped=True,
+                    )
+                    #dpg.add_spacer(width=0)
+                    dpg.add_input_int(
+                        tag="horizontal_scan_elevation",
+                        label="y",
+                        default_value=1024,
+                        min_value=900,
+                        max_value=2048,
+                        width=80,
+                        min_clamped=True,
+                        max_clamped=True,
                     )
                 
                 dpg.add_button(
@@ -544,39 +569,51 @@ def gui():
                 # add inputs for :   device_center_frequency_from_gui
                 #                   device_sample_rate_from_gui
                 #                   device_sample_count_from_gui
-                dpg.add_input_float(
+                dpg.add_input_int(
                     label="Center frequency (MHz)",
                     tag="center_frequency_input",
-                    default_value=5798998528.000,
-                    min_value=5718e6,
-                    max_value=5840e6,
-                    step=1e6,
+                    default_value=5798,
+                    min_value=5718,
+                    max_value=5840,
+                    step=1,
                     width=150,
                     min_clamped=True,
                     max_clamped=True,
                 )
-                dpg.add_input_float(
+                dpg.add_input_int(
                     label="Sample rate",
                     tag="sample_rate_input",
-                    default_value=20e6,
-                    min_value=1e6,
-                    step=1e6,
-                    max_value=20e6,
+                    default_value=20,
+                    min_value=1,
+                    step=1,
+                    max_value=20,
                     width=150,
                     min_clamped=True,
                     max_clamped=True,
                 )
-                dpg.add_input_float(
+                dpg.add_input_int(
                     label="Sample count",
                     tag="sample_count_input",
-                    default_value=1e6,
-                    min_value=1e3,
-                    max_value=1e8,
+                    default_value=1000000,
+                    min_value=1000,
+                    max_value=10000000,
                     width=150,
                     step=1_000,
                     min_clamped=True,
                     max_clamped=True,
                 )
+                dpg.add_input_int(
+                    label="VGA Gain",
+                    tag="vga_gain_input",
+                    default_value=16,
+                    min_value=0,
+                    max_value=62,
+                    width=150,
+                    step=2,
+                    min_clamped=True,
+                    max_clamped=True,
+                )
+                
                 dpg.add_button(tag="update_parameters_button", label="Update Parameters", callback=button_callback, enabled=False, width=150)
 
             # dpg_map.add_map_widget(
@@ -603,13 +640,13 @@ def gui():
                     thickness=2,
                     parent="compass_drawlist",
                 )  # 1
-                dpg.draw_text(
-                    (410, 60),
-                    "Forward",
-                    color=(255, 255, 255, 255),
-                    size=30,
-                    parent="compass_drawlist",
-                )  # 2
+                #dpg.draw_text(
+                #    (410, 60),
+                #    "Forward",
+                #    color=(255, 255, 255, 255),
+                #    size=30,
+                #    parent="compass_drawlist",
+                #)  # 2
 
                 dpg.draw_line(
                     p1=calc_compass_antenna_pos(15),
@@ -659,9 +696,11 @@ def gui():
                 no_scrollbar=False,
                 no_scroll_with_mouse=True,
             ):
-                dpg.add_button(
-                    label="Update Telemetry", callback=update_telemetry_table
-                )
+                #dpg.add_button(
+                #    label="Update Telemetry", callback=update_telemetry_table
+                #)
+                dpg.add_text("Telemetry Table")
+                dpg.add_spacer(height=5)
                 with dpg.table(
                     label="telemetry_table",
                     header_row=True,
@@ -768,14 +807,12 @@ def gui():
 
         current_time = time.time()
         if ready_to_query:
+            #Thito do all the time
+            update_global_variables()
             # Things to do every second
             if current_time > slow_loop_timer + 0.5:
                 # Request data
                 outbound_command_queue.put("get_telemetry")
-                update_compass()
-                update_telemetry_table()
-                update_signals_table()
-                draw_signals_on_compass()
                 slow_loop_timer = time.time()
 
             if current_time > fast_loop_timer + (1 / 60):  # 60 fps
@@ -794,12 +831,13 @@ def gui():
 
 
 def update_global_variables():
-    global telemetry_data_1, telemetry_data_2, device_center_frequency_from_gui, device_sample_rate_from_gui, device_sample_count_from_gui
+    global telemetry_data_1, telemetry_data_2, device_center_frequency_from_gui, device_sample_rate_from_gui, device_sample_count_from_gui, device_vga_gain_from_gui
     telemetry_data_1 = device.TELEMETRY_1
     telemetry_data_2 = device.TELEMETRY_2
-    device_center_frequency_from_gui = dpg.get_value("center_frequency_input")
-    device_sample_rate_from_gui = dpg.get_value("sample_rate_input")
-    device_sample_count_from_gui = dpg.get_value("sample_count_input")
+    device_center_frequency_from_gui = float(dpg.get_value("center_frequency_input")) * float(1.0e6)
+    device_sample_rate_from_gui = float(dpg.get_value("sample_rate_input")) * float(1.0e6)
+    device_sample_count_from_gui = float(dpg.get_value("sample_count_input"))
+    device_vga_gain_from_gui = int(dpg.get_value("vga_gain_input"))
 
 
 # Gui stuff
@@ -815,18 +853,22 @@ device_center_frequency_from_gui = 0.0
 device_sample_rate_from_gui = 0.0
 device_sample_count_from_gui = 0.0
 device_amplifier = False
+device_vga_gain_from_gui = 0
 
 
 ready_to_query = False
 currently_scanning = False
-horizontal_scan_points = 16
+horizontal_scan_points = 0
+horizontal_scan_elevation = 0
 
 # Variables
 telemetry_data_1 = None
 telemetry_data_2 = None
 graph_data = None
+remove_dc_spike = True
 
 #make a list of colors for the signals to be drawn (16 colors, adjacent colors are as different as possible, not white or black)
+#TODO might need more than 16 colors but for now this will do 
 color_list = [(255, 0, 0, 255), (0, 255, 0, 255), (0, 0, 255, 255), (255, 255, 0, 255), (255, 0, 255, 255), (0, 255, 255, 255), (255, 128, 0, 255), (255, 0, 128, 255), (0, 255, 128, 255), (128, 255, 0, 255), (0, 128, 255, 255), (128, 0, 255, 255), (255, 128, 128, 255), (128, 255, 128, 255), (128, 128, 255, 255), (255, 255, 128, 255)]
 
 outbound_command_queue = queue.Queue()
