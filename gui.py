@@ -91,11 +91,14 @@ def gui_query_thread_method():
                 currently_scanning = False
                 device_thread = None
 
+
 def perform_horizontal_scan_method():
     global inbound_data_queue, currently_scanning, horizontal_scan_points, horizontal_scan_elevation
     inbound_data_queue = device.return_queue
     try:
-        device.horizontal_sweep_precise(number_of_points=horizontal_scan_points, y_level=horizontal_scan_elevation)
+        device.horizontal_sweep_precise(
+            number_of_points=horizontal_scan_points, y_level=horizontal_scan_elevation
+        )
         currently_scanning = False
     except esp32_controller.stopEverything:
         # print("Device was stopped")
@@ -121,7 +124,7 @@ def perform_continuous_scan_method():
     except esp32_controller.stopEverything:
         # print("Device was stopped")
         currently_scanning = False
-    
+
 
 def import_data_thread_method():
     while True:
@@ -168,7 +171,7 @@ def button_callback(sender, app_data, user_data):
         outbound_command_queue.put("perform_full_scan")
         # dpg.disable_item("start_full_scan_button")
     elif sender == "start_horizontal_scan_button":
-        #update global variables
+        # update global variables
         horizontal_scan_points = dpg.get_value("horizontal_scan_points")
         horizontal_scan_elevation = dpg.get_value("horizontal_scan_elevation")
         # dpg.disable_item("perform_horizontal_scan_button")
@@ -212,17 +215,19 @@ def update_series():
         return
     if len(graph_data[0]) == 0 or len(graph_data[1]) == 0:
         return
-    
-    
+
     x = [v for v in graph_data[0]]
     y = [v for v in graph_data[1]]
-    
+
     if remove_dc_spike:
-        #find the average of the y values
+        # find the average of the y values
         x_avg = sum(x[0:1000]) / 1000
-        #replace DC spike with average value
-        x = [x_avg if i in range(1012, 1036) else val for i, val in enumerate(graph_data[0])]
-        
+        # replace DC spike with average value
+        x = [
+            x_avg if i in range(1012, 1036) else val
+            for i, val in enumerate(graph_data[0])
+        ]
+
     dpg.set_value("series_tag", [y, x])
 
     dpg.fit_axis_data("x_axis")
@@ -303,71 +308,113 @@ def calc_compass_antenna_pos(offset):
 
 
 def draw_signals_on_compass():
-    """Method to draw short lines according to the strength of the signal on the outside of the compass ring. The length of the line is propertional to signal's strength. Each signal gets its own color. """
-    #get starting point of signal line (point on the circle)
+    """Method to draw short lines according to the strength of the signal on the outside of the compass ring. The length of the line is propertional to signal's strength. Each signal gets its own color."""
+    # get starting point of signal line (point on the circle)
     global device
 
     if device.active_signals is None or len(device.active_signals) == 0:
         return
-    
-    for i,signal in enumerate(device.active_signals):
+
+    for i, signal in enumerate(device.active_signals):
         # get the signal's direction and strength
         sid = signal.id
         signal_direction = signal.x
         signal_strength = signal.peak_power_db
         signal_id = f"signal_strength_line_{sid}"
-        
-        #offset adjustment (add 90 degrees to the position of each signal line)
+
+        # offset adjustment (add 90 degrees to the position of each signal line)
         offset = 1024
-        
-        #calculate the length of the signals line (Signals strength is in dBm, ranging from -60 to 15. We must convert that to a value between 0 and 50 pixels.)
+
+        # calculate the length of the signals line (Signals strength is in dBm, ranging from -60 to 15. We must convert that to a value between 0 and 50 pixels.)
         length = 50 * (signal_strength + 60) // 75
 
-        #calculate starting points of the signal line on the compass circle
+        # calculate starting points of the signal line on the compass circle
         x_start = 400 + 200 * math.cos((signal_direction + offset) * 2 * math.pi / 4096)
         y_start = 300 + 200 * math.sin((signal_direction + offset) * 2 * math.pi / 4096)
-        
+
         # calculate the end point of the line (it is at max 20pixels length)
-        x_end = x_start + length * math.cos((signal_direction + offset) * 2 * math.pi / 4096)
-        y_end = y_start + length * math.sin((signal_direction + offset) * 2 * math.pi / 4096)
-        
-        #find the max points where the signal could go (for the end dot)
-        x_max = x_start + 50 * math.cos((signal_direction + offset) * 2 * math.pi / 4096)
-        y_max = y_start + 50 * math.sin((signal_direction + offset) * 2 * math.pi / 4096)
-        
+        x_end = x_start + length * math.cos(
+            (signal_direction + offset) * 2 * math.pi / 4096
+        )
+        y_end = y_start + length * math.sin(
+            (signal_direction + offset) * 2 * math.pi / 4096
+        )
+
+        # find the max points where the signal could go (for the end dot)
+        x_max = x_start + 50 * math.cos(
+            (signal_direction + offset) * 2 * math.pi / 4096
+        )
+        y_max = y_start + 50 * math.sin(
+            (signal_direction + offset) * 2 * math.pi / 4096
+        )
+
         # pick a color
         signal_color = color_list[i]
-        
+
         if dpg.does_item_exist(f"{signal_id}_line"):
             dpg.delete_item(f"{signal_id}_line")
             dpg.delete_item(f"{signal_id}_text")
             dpg.delete_item(f"{signal_id}_circle")
-        #write signal's strength as a number
-        dpg.draw_text(pos=(x_max, y_max), text=f"{round(signal_strength, 3)}",tag=f"{signal_id}_text", color=signal_color, size=18, parent="compass_drawlist") 
+        # write signal's strength as a number
+        dpg.draw_text(
+            pos=(x_max, y_max),
+            text=f"{round(signal_strength, 3)}",
+            tag=f"{signal_id}_text",
+            color=signal_color,
+            size=18,
+            parent="compass_drawlist",
+        )
         # draw the signals strength line
-        dpg.draw_line(p1=(x_start, y_start), p2=(x_end, y_end), tag=f"{signal_id}_line", color=signal_color, thickness=2, parent="compass_drawlist")
-        #draw a point at the max possible signal length
-        dpg.draw_circle((x_max, y_max), 2, tag=f"{signal_id}_circle", color=signal_color, thickness=2, parent="compass_drawlist")
-        #else:
-            #dpg.set_value(signal_id, ((x_start, y_start), (x_end, y_end)))
-            #dpg.set_value(signal_id+"text", (x_end, y_end), f"{round(signal_strength, 3)}")
-            #dpg.set_value(signal_id+"circle", (x_max, y_max))
-        
-        #global telemetry_data_1
-        #for this signal, also draw its position history lines
+        dpg.draw_line(
+            p1=(x_start, y_start),
+            p2=(x_end, y_end),
+            tag=f"{signal_id}_line",
+            color=signal_color,
+            thickness=2,
+            parent="compass_drawlist",
+        )
+        # draw a point at the max possible signal length
+        dpg.draw_circle(
+            (x_max, y_max),
+            2,
+            tag=f"{signal_id}_circle",
+            color=signal_color,
+            thickness=2,
+            parent="compass_drawlist",
+        )
+        # else:
+        # dpg.set_value(signal_id, ((x_start, y_start), (x_end, y_end)))
+        # dpg.set_value(signal_id+"text", (x_end, y_end), f"{round(signal_strength, 3)}")
+        # dpg.set_value(signal_id+"circle", (x_max, y_max))
+
+        # global telemetry_data_1
+        # for this signal, also draw its position history lines
         for i, sweep in enumerate(signal.position_history):
             for j, position in enumerate(sweep):
-                x_start = 400 + 200 * math.cos((position[0] + offset) * 2 * math.pi / 4096)
-                y_start = 300 + 200 * math.sin((position[0] + offset) * 2 * math.pi / 4096)
+                x_start = 400 + 200 * math.cos(
+                    (position[0] + offset) * 2 * math.pi / 4096
+                )
+                y_start = 300 + 200 * math.sin(
+                    (position[0] + offset) * 2 * math.pi / 4096
+                )
                 length_h = 50 * (position[2] + 60) // 75
 
-                x_end = x_start + length_h * math.cos((position[0] + offset) * 2 * math.pi / 4096)
-                y_end = y_start + length_h * math.sin((position[0] + offset) * 2 * math.pi / 4096)
-                
+                x_end = x_start + length_h * math.cos(
+                    (position[0] + offset) * 2 * math.pi / 4096
+                )
+                y_end = y_start + length_h * math.sin(
+                    (position[0] + offset) * 2 * math.pi / 4096
+                )
+
                 if not dpg.does_item_exist(f"signal_history_line_{sid}_{i}_{j}"):
-                    dpg.draw_line(p1=(x_start, y_start), p2=(x_end, y_end),tag=f"signal_history_line_{sid}_{i}_{j}", color=signal_color, thickness=1, parent="compass_drawlist")
-                
-        
+                    dpg.draw_line(
+                        p1=(x_start, y_start),
+                        p2=(x_end, y_end),
+                        tag=f"signal_history_line_{sid}_{i}_{j}",
+                        color=signal_color,
+                        thickness=1,
+                        parent="compass_drawlist",
+                    )
 
 
 def update_signals_table():
@@ -473,7 +520,7 @@ def gui():
                         width=100,
                         callback=set_hackrf_id,
                     )
-                    
+
                 dpg.add_spacer(height=15)
 
                 dpg.add_button(
@@ -481,7 +528,7 @@ def gui():
                     label="Move antenna to front",
                     enabled=False,
                     callback=button_callback,
-                    width=175
+                    width=175,
                 )
 
                 dpg.add_button(
@@ -489,18 +536,18 @@ def gui():
                     label="Start Full Scan",
                     callback=button_callback,
                     enabled=False,
-                    width=175
+                    width=175,
                 )
-                
+
                 with dpg.group(horizontal=True):
                     dpg.add_button(
                         tag="start_horizontal_scan_button",
                         label="Start Horizontal Scan",
                         enabled=False,
                         callback=button_callback,
-                        width=175
+                        width=175,
                     )
-                    #dpg.add_spacer(width=0)
+                    # dpg.add_spacer(width=0)
                     dpg.add_input_int(
                         tag="horizontal_scan_points",
                         label="n",
@@ -511,7 +558,7 @@ def gui():
                         min_clamped=True,
                         max_clamped=True,
                     )
-                    #dpg.add_spacer(width=0)
+                    # dpg.add_spacer(width=0)
                     dpg.add_input_int(
                         tag="horizontal_scan_elevation",
                         label="y",
@@ -522,13 +569,13 @@ def gui():
                         min_clamped=True,
                         max_clamped=True,
                     )
-                
+
                 dpg.add_button(
                     tag="perform_single_scan_button",
                     label="Perform single scan at current position",
                     enabled=False,
                     callback=button_callback,
-                    width=300
+                    width=300,
                 )
 
                 dpg.add_button(
@@ -536,10 +583,9 @@ def gui():
                     label="Continuously scan at current position",
                     enabled=False,
                     callback=button_callback,
-                    width=300
-
+                    width=300,
                 )
-                
+
                 dpg.add_spacer(height=15)
 
                 dpg.add_button(
@@ -551,20 +597,20 @@ def gui():
 
                 dpg.add_spacer(height=15)
 
-
                 with dpg.group(horizontal=True):
                     dpg.add_button(
                         tag="toggle_amplifier_button",
                         enabled=False,
                         label="Toggle Amplifier",
                         callback=button_callback,
-                        width=150
+                        width=150,
                     )
-                    
-                    #dpg.add_spacer(width=18)
 
-                    dpg.add_text(tag="amplifier_status", default_value="Amplifier is off")
+                    # dpg.add_spacer(width=18)
 
+                    dpg.add_text(
+                        tag="amplifier_status", default_value="Amplifier is off"
+                    )
 
                 # add inputs for :   device_center_frequency_from_gui
                 #                   device_sample_rate_from_gui
@@ -613,8 +659,14 @@ def gui():
                     min_clamped=True,
                     max_clamped=True,
                 )
-                
-                dpg.add_button(tag="update_parameters_button", label="Update Parameters", callback=button_callback, enabled=False, width=150)
+
+                dpg.add_button(
+                    tag="update_parameters_button",
+                    label="Update Parameters",
+                    callback=button_callback,
+                    enabled=False,
+                    width=150,
+                )
 
             # dpg_map.add_map_widget(
             #        width=800,
@@ -640,13 +692,13 @@ def gui():
                     thickness=2,
                     parent="compass_drawlist",
                 )  # 1
-                #dpg.draw_text(
+                # dpg.draw_text(
                 #    (410, 60),
                 #    "Forward",
                 #    color=(255, 255, 255, 255),
                 #    size=30,
                 #    parent="compass_drawlist",
-                #)  # 2
+                # )  # 2
 
                 dpg.draw_line(
                     p1=calc_compass_antenna_pos(15),
@@ -696,9 +748,9 @@ def gui():
                 no_scrollbar=False,
                 no_scroll_with_mouse=True,
             ):
-                #dpg.add_button(
+                # dpg.add_button(
                 #    label="Update Telemetry", callback=update_telemetry_table
-                #)
+                # )
                 dpg.add_text("Telemetry Table")
                 dpg.add_spacer(height=5)
                 with dpg.table(
@@ -754,7 +806,9 @@ def gui():
                     dpg.add_plot_legend()
 
                     # REQUIRED: create x and y axes
-                    dpg.add_plot_axis(dpg.mvXAxis, label="Frequency (MHz)", tag="x_axis")
+                    dpg.add_plot_axis(
+                        dpg.mvXAxis, label="Frequency (MHz)", tag="x_axis"
+                    )
                     dpg.add_plot_axis(
                         dpg.mvYAxis,
                         label="Signal Strength (dBm)",
@@ -777,7 +831,6 @@ def gui():
                 no_scrollbar=False,
                 no_scroll_with_mouse=False,
                 tag="console_window",
-                
             ):
                 dpg.add_text("Console log", tag="console_row_1")
 
@@ -807,7 +860,7 @@ def gui():
 
         current_time = time.time()
         if ready_to_query:
-            #Thito do all the time
+            # Thito do all the time
             update_global_variables()
             # Things to do every second
             if current_time > slow_loop_timer + 0.5:
@@ -834,8 +887,12 @@ def update_global_variables():
     global telemetry_data_1, telemetry_data_2, device_center_frequency_from_gui, device_sample_rate_from_gui, device_sample_count_from_gui, device_vga_gain_from_gui
     telemetry_data_1 = device.TELEMETRY_1
     telemetry_data_2 = device.TELEMETRY_2
-    device_center_frequency_from_gui = float(dpg.get_value("center_frequency_input")) * float(1.0e6)
-    device_sample_rate_from_gui = float(dpg.get_value("sample_rate_input")) * float(1.0e6)
+    device_center_frequency_from_gui = float(
+        dpg.get_value("center_frequency_input")
+    ) * float(1.0e6)
+    device_sample_rate_from_gui = float(dpg.get_value("sample_rate_input")) * float(
+        1.0e6
+    )
     device_sample_count_from_gui = float(dpg.get_value("sample_count_input"))
     device_vga_gain_from_gui = int(dpg.get_value("vga_gain_input"))
 
@@ -867,9 +924,26 @@ telemetry_data_2 = None
 graph_data = None
 remove_dc_spike = True
 
-#make a list of colors for the signals to be drawn (16 colors, adjacent colors are as different as possible, not white or black)
-#TODO might need more than 16 colors but for now this will do 
-color_list = [(255, 0, 0, 255), (0, 255, 0, 255), (0, 0, 255, 255), (255, 255, 0, 255), (255, 0, 255, 255), (0, 255, 255, 255), (255, 128, 0, 255), (255, 0, 128, 255), (0, 255, 128, 255), (128, 255, 0, 255), (0, 128, 255, 255), (128, 0, 255, 255), (255, 128, 128, 255), (128, 255, 128, 255), (128, 128, 255, 255), (255, 255, 128, 255)]
+# make a list of colors for the signals to be drawn (16 colors, adjacent colors are as different as possible, not white or black)
+# TODO might need more than 16 colors but for now this will do
+color_list = [
+    (255, 0, 0, 255),
+    (0, 255, 0, 255),
+    (0, 0, 255, 255),
+    (255, 255, 0, 255),
+    (255, 0, 255, 255),
+    (0, 255, 255, 255),
+    (255, 128, 0, 255),
+    (255, 0, 128, 255),
+    (0, 255, 128, 255),
+    (128, 255, 0, 255),
+    (0, 128, 255, 255),
+    (128, 0, 255, 255),
+    (255, 128, 128, 255),
+    (128, 255, 128, 255),
+    (128, 128, 255, 255),
+    (255, 255, 128, 255),
+]
 
 outbound_command_queue = queue.Queue()
 inbound_data_queue = queue.Queue()

@@ -395,17 +395,19 @@ class ESP32Controller:
         reverse = False
         skip_first = False
 
-        while not self.stop_everything: #continious sweeping
+        while not self.stop_everything:  # continious sweeping
             for s in self.active_signals:
-                s.update_sweep_list() #add an empty sweep list to populate in each signals history list
-                if not skip_first:                    
-                    s.inc_sweep_id() #increment the sweep id for each signal
+                s.update_sweep_list()  # add an empty sweep list to populate in each signals history list
+                if not skip_first:
+                    s.inc_sweep_id()  # increment the sweep id for each signal
 
-            for x_position in reversed(x_positions) if reverse else x_positions: #reverse the sweep direction every time, to minimise unnecessary traversal
+            for x_position in (
+                reversed(x_positions) if reverse else x_positions
+            ):  # reverse the sweep direction every time, to minimise unnecessary traversal
                 if skip_first:
                     skip_first = False
                     continue
-                
+
                 if not self.__inRange(self.CURRENT_POSITION_2, y_level, 10):
                     self.__move_to(2, y_level)
                 self.__move_to_and_wait_for_complete(1, x_position[1])
@@ -424,9 +426,12 @@ class ESP32Controller:
                             signal.x = x
                             signal.y = y
                             self.active_signals.append(signal)
-                            print("[len(active signals) == 0] Added completely new signal to active signals", signal.to_string())
-                            signal.update_sweep_list()    
-                        
+                            print(
+                                "[len(active signals) == 0] Added completely new signal to active signals",
+                                signal.to_string(),
+                            )
+                            signal.update_sweep_list()
+
                         # check if signal is already in active signals, if it is, update it
                         this_signal_is_new = True
                         for index, existing_signal in enumerate(self.active_signals):
@@ -442,26 +447,29 @@ class ESP32Controller:
                                     1,
                                 )
                                 and self.__inRange(
-                                    signal.end_freq,
-                                    existing_signal.end_freq,
-                                    0.1
+                                    signal.end_freq, existing_signal.end_freq, 0.1
                                 )
                                 # and self.__inRange(x, existing_signal.x, 10)
                                 # and self.__inRange(y, existing_signal.y, 10)
                             ):
                                 # found existing signal
                                 this_signal_is_new = False
-                                
-                                #update this signal's position history
-                                if len(existing_signal.position_history) < existing_signal.sweep_id + 1:
+
+                                # update this signal's position history
+                                if (
+                                    len(existing_signal.position_history)
+                                    < existing_signal.sweep_id + 1
+                                ):
                                     existing_signal.update_sweep_list()
 
-                                existing_signal.position_history[existing_signal.sweep_id].append([x, y, signal.peak_power_db])
-                                
-                                #its not stronger, skip the recursive 8-point check
+                                existing_signal.position_history[
+                                    existing_signal.sweep_id
+                                ].append([x, y, signal.peak_power_db])
+
+                                # its not stronger, skip the recursive 8-point check
                                 if signal.peak_power_db < existing_signal.peak_power_db:
                                     continue
-                                #its stronger, first check if an even stronger is nearby
+                                # its stronger, first check if an even stronger is nearby
                                 (
                                     x_return,
                                     y_return,
@@ -475,7 +483,11 @@ class ESP32Controller:
                                     signal.start_freq,
                                     signal.end_freq,
                                 )
-                                print("Found a stronger signal position: ", x_return, y_return)
+                                print(
+                                    "Found a stronger signal position: ",
+                                    x_return,
+                                    y_return,
+                                )
                                 # update existing signal with new stronger signal position data
                                 existing_signal.x = x_return
                                 existing_signal.y = y_return
@@ -489,16 +501,18 @@ class ESP32Controller:
                             signal.x = x
                             signal.y = y
                             self.active_signals.append(signal)
-                            print("Added new signal to active signals", signal.to_string())
+                            print(
+                                "Added new signal to active signals", signal.to_string()
+                            )
                             signal.update_sweep_list()
             existing_signal.inc_sweep_id()
-                # self.return_queue.put((signals, raw_data, telem1, telem2), block=False, timeout=0)
-                # print(len(signals), len(raw_data), len(telem1), len(telem2))
-            #while loop variables
+            # self.return_queue.put((signals, raw_data, telem1, telem2), block=False, timeout=0)
+            # print(len(signals), len(raw_data), len(telem1), len(telem2))
+            # while loop variables
             reverse = not reverse
             skip_first = True
         else:
-            raise stopEverything("User stopped infinite horizontal precise scan.")   
+            raise stopEverything("User stopped infinite horizontal precise scan.")
 
     def find_strongest_point_of_signal(
         self,
@@ -519,7 +533,7 @@ class ESP32Controller:
 
         location_data = list()
         for location in locations:
-            #print(location)
+            # print(location)
             self.move_both(1, 2, location[0], location[1])
             location_data.append([location, self.perform_scan()])
 
@@ -555,16 +569,19 @@ class ESP32Controller:
         self.__move_to(2, 1024)
         # self.__syncmove_to(1, 2, 2048, 1024)
 
-    
     def continuously_scan(self):
-        
+
         while not self.stop_everything:
-            signals, raw_data, telemetry_1, telemetry_2 = self.perform_scan(offset=10, show_graph=False)
-            self.return_queue.put((signals, raw_data, telemetry_1, telemetry_2), block=False, timeout=0)
+            signals, raw_data, telemetry_1, telemetry_2 = self.perform_scan(
+                offset=10, show_graph=False
+            )
+            self.return_queue.put(
+                (signals, raw_data, telemetry_1, telemetry_2), block=False, timeout=0
+            )
         else:
             self.stop_everything = False
             raise stopEverything("User stopped infinite scan.")
-    
+
     def perform_scan(
         self, offset=10, show_graph=False
     ) -> tuple[list[signal_processor.Signal], list, dict[str, int], dict[str, int]]:
