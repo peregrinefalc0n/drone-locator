@@ -595,7 +595,7 @@ class ESP32Controller:
         # )
         # if int(telemetry_1['temperature']) >= 50 or int(telemetry_2['temperature']) >= 50:
         #    raise ServoTemperatureTooHigh("Servo temperature too high.")
-        signals, raw_data = self.sp.get_signals(offset, show_graph)
+        signals, raw_data = self.sp.get_signals()
         # print("Signals found: ", len(signals))
         # for i, signal in enumerate(signals):
         # print(

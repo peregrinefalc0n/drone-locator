@@ -216,7 +216,7 @@ def update_series():
     if len(graph_data[0]) == 0 or len(graph_data[1]) == 0:
         return
 
-    x = [v for v in graph_data[0]]
+    x = [signal_processor.SignalProcessor.mW_to_dBm(v) for v in graph_data[0]]
     y = [v for v in graph_data[1]]
 
     if remove_dc_spike:
@@ -819,7 +819,7 @@ def gui():
                     # series belong to a y axis
                     dpg.add_line_series(
                         [0.0 for i in range(2048)],
-                        [0.0 for i in range(100)],
+                        [0.0 for i in range(10)],
                         label="HackRF Data",
                         parent="y_axis",
                         tag="series_tag",
