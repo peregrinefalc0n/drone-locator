@@ -435,7 +435,7 @@ class ESP32Controller:
                                 and self.__inRange(
                                     signal.start_freq,
                                     existing_signal.start_freq,
-                                    1,
+                                    0.1,
                                 )
                                 and self.__inRange(
                                     signal.end_freq, existing_signal.end_freq, 0.1
