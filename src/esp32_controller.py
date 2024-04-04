@@ -3,6 +3,7 @@ import serial
 import math
 import platform
 from src import signal_processor
+from . import objects
 import queue
 
 # The custom command structure when interfacing with esp32 over serial (usb)
@@ -574,7 +575,7 @@ class ESP32Controller:
 
     def perform_scan(
         self, offset=10, show_graph=False
-    ) -> tuple[list[signal_processor.Signal], list, dict[str, int], dict[str, int]]:
+    ) -> tuple[list[objects.Signal], list, dict[str, int], dict[str, int]]:
         """Perform a scan at the current servo positions. \n
         Returns any signals found + servo telemetry."""
         telemetry_1 = self.get_telemetry(1)
