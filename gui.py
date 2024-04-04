@@ -161,7 +161,7 @@ def import_data_thread_method():
 
 
 def button_callback(sender, app_data, user_data):
-    global device, horizontal_scan_points, device_sample_rate_from_gui, device_center_frequency_from_gui, horizontal_scan_elevation
+    global device, horizontal_scan_points, device_sample_rate_from_gui, device_center_frequency_from_gui, horizontal_scan_elevation, device_vga_gain_from_gui
     # print(f"sender is: {sender}")
     # print(f"app_data is: {app_data}")
     # print(f"user_data is: {user_data}")
@@ -197,6 +197,7 @@ def button_callback(sender, app_data, user_data):
         device.sp.hackrf.sample_rate = device_sample_rate_from_gui
         device.sp.hackrf.center_freq = device_center_frequency_from_gui
         device.sp.sample_count = device_sample_count_from_gui
+        device.sp.hackrf.vga_gain = device_vga_gain_from_gui
 
 
 def set_hackrf_id(sender):
@@ -216,7 +217,7 @@ def update_series():
     if len(graph_data[0]) == 0 or len(graph_data[1]) == 0:
         return
 
-    x = [signal_processor.SignalProcessor.mW_to_dBm(v) for v in graph_data[0]]
+    x = [signal_processor.mW_to_dBm(v) for v in graph_data[0]]
     y = [v for v in graph_data[1]]
 
     if remove_dc_spike:
@@ -225,13 +226,16 @@ def update_series():
         # replace DC spike with average value
         x = [
             x_avg if i in range(1012, 1036) else val
-            for i, val in enumerate(graph_data[0])
+            for i, val in enumerate(x)
         ]
 
     dpg.set_value("series_tag", [y, x])
+    
+    if device.sp.db_offset_in_use is not None or device.sp.db_offset_in_use != 0.0:
+        dpg.set_value("level_of_interest_line", [y, [device.sp.db_offset_in_use for i in range(len(y))]])
 
-    dpg.fit_axis_data("x_axis")
     dpg.fit_axis_data("y_axis")
+    dpg.fit_axis_data("x_axis")
 
 
 def update_telemetry_table():
@@ -261,7 +265,7 @@ def update_telemetry_table():
 def add_to_console_table(message):
     if len(message) == 0:
         return
-    message = f'{time.strftime("%H:%M:%S")}] - {message}'
+    message = f'{time.strftime("%H:%M:%S")}] \n{message}'
     dpg.add_text(message, parent="console_window")
     if dpg.get_y_scroll_max("console_window") > 0:
         dpg.set_y_scroll("console_window", dpg.get_y_scroll_max("console_window"))
@@ -321,7 +325,10 @@ def draw_signals_on_compass():
         signal_direction = signal.x
         signal_strength = signal.peak_power_db
         signal_id = f"signal_strength_line_{sid}"
-
+        
+        if not signal_processor.calculate_signal_channel(signal):
+            continue
+            
         # offset adjustment (add 90 degrees to the position of each signal line)
         offset = 1024
 
@@ -387,8 +394,17 @@ def draw_signals_on_compass():
         # dpg.set_value(signal_id+"text", (x_end, y_end), f"{round(signal_strength, 3)}")
         # dpg.set_value(signal_id+"circle", (x_max, y_max))
 
+        #TODO
+        #remove old signal history lines
+        #if (len(signal.position_history) > 2):
+        #    for i, sweep in enumerate(signal.position_history):
+        #        for j, position in enumerate(sweep):
+        #            if dpg.does_item_exist(f"signal_history_line_{sid}_{i}_{j}"):
+        #                dpg.delete_item(f"signal_history_line_{sid}_{i}_{j}")
+
         # global telemetry_data_1
-        # for this signal, also draw its position history lines
+        # for this signal, also draw the last two sweeps worth of positions
+        #print(len(signal.position_history), signal.position_history)      
         for i, sweep in enumerate(signal.position_history):
             for j, position in enumerate(sweep):
                 x_start = 400 + 200 * math.cos(
@@ -530,14 +546,36 @@ def gui():
                     callback=button_callback,
                     width=175,
                 )
+                
+                with dpg.group(horizontal=True):
 
-                dpg.add_button(
-                    tag="start_full_scan_button",
-                    label="Start Full Scan",
-                    callback=button_callback,
-                    enabled=False,
-                    width=175,
-                )
+                    dpg.add_button(
+                        tag="start_full_scan_button",
+                        label="Start Full Scan",
+                        callback=button_callback,
+                        enabled=False,
+                        width=175,
+                    )
+                    dpg.add_input_int(
+                        tag="full_scan_horizontal_points",
+                        label="x",
+                        default_value=32,
+                        min_value=2,
+                        max_value=4096,
+                        width=80,
+                        min_clamped=True,
+                        max_clamped=True,
+                    )
+                    dpg.add_input_int(
+                        tag="full_scan_vertical_points",
+                        label="y",
+                        default_value=4,
+                        min_value=4,
+                        max_value=100,
+                        width=80,
+                        min_clamped=True,
+                        max_clamped=True,
+                    )
 
                 with dpg.group(horizontal=True):
                     dpg.add_button(
@@ -550,8 +588,8 @@ def gui():
                     # dpg.add_spacer(width=0)
                     dpg.add_input_int(
                         tag="horizontal_scan_points",
-                        label="n",
-                        default_value=32,
+                        label="x",
+                        default_value=360,
                         min_value=1,
                         max_value=4096,
                         width=80,
@@ -561,9 +599,9 @@ def gui():
                     # dpg.add_spacer(width=0)
                     dpg.add_input_int(
                         tag="horizontal_scan_elevation",
-                        label="y",
+                        label="h",
                         default_value=1024,
-                        min_value=900,
+                        min_value=700,
                         max_value=2048,
                         width=80,
                         min_clamped=True,
@@ -618,7 +656,7 @@ def gui():
                 dpg.add_input_int(
                     label="Center frequency (MHz)",
                     tag="center_frequency_input",
-                    default_value=5798,
+                    default_value=5772,
                     min_value=5718,
                     max_value=5840,
                     step=1,
@@ -813,17 +851,21 @@ def gui():
                         dpg.mvYAxis,
                         label="Signal Strength (dBm)",
                         tag="y_axis",
-                        log_scale=True,
+                        log_scale=False,
                     )
 
                     # series belong to a y axis
                     dpg.add_line_series(
+                        [i for i in range(2048)],
                         [0.0 for i in range(2048)],
-                        [0.0 for i in range(10)],
                         label="HackRF Data",
                         parent="y_axis",
                         tag="series_tag",
                     )
+                    #draw a horizontal line
+                    
+                    dpg.add_line_series([i for i in range(2048)],
+                        [-52 for i in range(2048)], tag="level_of_interest_line", label="LOI", parent="y_axis")
 
             with dpg.child_window(
                 height=bottom_area_height,
@@ -924,26 +966,53 @@ telemetry_data_2 = None
 graph_data = None
 remove_dc_spike = True
 
-# make a list of colors for the signals to be drawn (16 colors, adjacent colors are as different as possible, not white or black)
-# TODO might need more than 16 colors but for now this will do
+# make a list of colors for the signals to be drawn (32 colors, adjacent colors are as different as possible, not white or black)
+# TODO might need more than 32 colors but for now this will do
 color_list = [
     (255, 0, 0, 255),
-    (0, 255, 0, 255),
-    (0, 0, 255, 255),
     (255, 255, 0, 255),
-    (255, 0, 255, 255),
+    (0, 255, 0, 255),
     (0, 255, 255, 255),
+    (0, 0, 255, 255),
+    (255, 0, 255, 255),
+    (128, 0, 0, 255),
+    (128, 128, 0, 255),
+    (0, 128, 0, 255),
+    (0, 128, 128, 255),
+    (0, 0, 128, 255),
+    (128, 0, 128, 255),
     (255, 128, 0, 255),
-    (255, 0, 128, 255),
-    (0, 255, 128, 255),
     (128, 255, 0, 255),
+    (0, 255, 128, 255),
     (0, 128, 255, 255),
     (128, 0, 255, 255),
+    (255, 0, 128, 255),
     (255, 128, 128, 255),
     (128, 255, 128, 255),
     (128, 128, 255, 255),
     (255, 255, 128, 255),
+    (255, 128, 255, 255),
+    (128, 255, 255, 255),
+    (192, 0, 0, 255),
+    (192, 192, 0, 255),
+    (0, 192, 0, 255),
+    (0, 192, 192, 255),
+    (0, 0, 192, 255),
+    (192, 0, 192, 255),
+    (255, 192, 0, 255),
+    (192, 255, 0, 255),
+    (0, 255, 192, 255),
+    (0, 192, 255, 255),
+    (192, 0, 255, 255),
+    (255, 0, 192, 255),
+    (255, 192, 192, 255),
+    (192, 255, 192, 255),
+    (192, 192, 255, 255),
+    (255, 255, 192, 255),
+    (255, 192, 255, 255),
+    (192, 255, 255, 255)
 ]
+    
 
 outbound_command_queue = queue.Queue()
 inbound_data_queue = queue.Queue()

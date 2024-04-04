@@ -113,22 +113,13 @@ class ESP32Controller:
         """Check if the future y-axis location is within the bounds of the vertical servo safe operation. \n
         These values should be edited if servo movement range is expanded or reduced on the physical device.
         """
-        return 900 <= location <= 2072
+        return 700 <= location <= 2072
 
     def __inRange(self, actual, expected, range):
         """Check if the actual value is within the expected value with a given range."""
         return abs(actual - expected) <= range
 
-    # Unused
-    def __calculate_horizontal_sweepline_radii(self, lines=6):
-        """Calculate radii for horizontal sweep lines, so that they are evenly spaced out."""
-        main_radius = 4096 // (math.pi * 2)
-        division = 90 / lines
-        radii = []
-        for i in range(0, lines + 1):
-            radius = main_radius * math.sin(math.radians(90 - (division * i)))
-            radii.append(int(radius))
-        return radii
+
 
     def __calculate_vertical_movement_distances(self, n):
         """Returns a list of y-axis positions for the vertical servo to move to.\n
@@ -140,7 +131,6 @@ class ESP32Controller:
             y_positions.append(y)
         return y_positions
 
-    # Unused (for now)
     def calculate_circular_coordinates(self, center_x, center_y, radius, n):
         """Calculate n evenly spaced out coordinates in a circle around center_x and center_y coordinates."""
         coordinates = []
@@ -150,10 +140,10 @@ class ESP32Controller:
             y = int(center_y + radius * math.sin(angle_radians))
 
             # y-axis squishing
-            if y > 2072:
+            if y > 2048:
                 y = 2048
-            if y < 900:
-                y = 900
+            if y < 700:
+                y = 700
 
             # x-axis squishing
             if x > 4096:
@@ -396,10 +386,10 @@ class ESP32Controller:
         skip_first = False
 
         while not self.stop_everything:  # continious sweeping
-            for s in self.active_signals:
-                s.update_sweep_list()  # add an empty sweep list to populate in each signals history list
-                if not skip_first:
-                    s.inc_sweep_id()  # increment the sweep id for each signal
+            #for s in self.active_signals:
+            #    s.update_sweep_list()  # add an empty sweep list to populate in each signals history list
+            #    if not skip_first:
+            #        s.inc_sweep_id()  # increment the sweep id for each signal
 
             for x_position in (
                 reversed(x_positions) if reverse else x_positions
@@ -421,20 +411,21 @@ class ESP32Controller:
                 # peak_power_db = scan_data[0][0].peak_power_db
                 if len(scan_data[0]) > 0:  # if we got signals on this scan
                     for signal in scan_data[0]:
-                        print("Found signals:", len(scan_data[0]))
+                        #print("Found signals:", len(scan_data[0]))
                         if len(self.active_signals) == 0:
                             signal.x = x
                             signal.y = y
                             self.active_signals.append(signal)
-                            print(
-                                "[len(active signals) == 0] Added completely new signal to active signals",
-                                signal.to_string(),
-                            )
+                            #print(
+                            #    "[len(active signals) == 0] Added completely new signal to active signals",
+                            #    signal.to_string(),
+                            #)
                             signal.update_sweep_list()
 
                         # check if signal is already in active signals, if it is, update it
                         this_signal_is_new = True
                         for index, existing_signal in enumerate(self.active_signals):
+                            existing_signal.inc_sweep_id()
                             if (
                                 self.__inRange(
                                     signal.peak_freq,
@@ -483,11 +474,11 @@ class ESP32Controller:
                                     signal.start_freq,
                                     signal.end_freq,
                                 )
-                                print(
-                                    "Found a stronger signal position: ",
-                                    x_return,
-                                    y_return,
-                                )
+                                #print(
+                                #    "Found a stronger signal position: ",
+                                #    x_return,
+                                #    y_return,
+                                #)
                                 # update existing signal with new stronger signal position data
                                 existing_signal.x = x_return
                                 existing_signal.y = y_return
@@ -501,11 +492,10 @@ class ESP32Controller:
                             signal.x = x
                             signal.y = y
                             self.active_signals.append(signal)
-                            print(
-                                "Added new signal to active signals", signal.to_string()
-                            )
+                            #print(
+                            #    "Added new signal to active signals", signal.to_string()
+                            #)
                             signal.update_sweep_list()
-            existing_signal.inc_sweep_id()
             # self.return_queue.put((signals, raw_data, telem1, telem2), block=False, timeout=0)
             # print(len(signals), len(raw_data), len(telem1), len(telem2))
             # while loop variables
