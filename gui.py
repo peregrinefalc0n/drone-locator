@@ -8,6 +8,8 @@ from src import signal_processor
 import time
 import threading
 import queue
+import logging
+import datetime
 
 
 def gui_query_thread_method():
@@ -156,8 +158,10 @@ def import_data_thread_method():
 
         text = ""
         for signal in signals:
-            text += f"Signal: {round(signal.start_freq, 4)} - {round(signal.end_freq, 4)} MHz at {signal.peak_power_db} dBm\n"
+            text += f"{signal.channel if signal.channel != None else "?"} | {round(signal.peak_freq, 4)} MHz | {signal.peak_power_db} dBm\n"
+            logger.info(signal.to_log_string())
         add_to_console_table(text)
+
 
 
 def button_callback(sender, app_data, user_data):
@@ -938,12 +942,22 @@ def update_global_variables():
     device_sample_count_from_gui = float(dpg.get_value("sample_count_input"))
     device_vga_gain_from_gui = int(dpg.get_value("vga_gain_input"))
 
+def create_logger():
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.INFO)
+    timestamp = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+    log_file_path = f'data/signals_log_{timestamp}.log'
+    handler = logging.FileHandler(log_file_path)
+    formatter = logging.Formatter('%(asctime)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+    return logger
 
-# Gui stuff
+# Gui layout constants
 top_area_height = 550
 bottom_area_height = 385
 
-# Device stuff
+# Device constants
 hackrf_id = 0
 device = None
 sp = None
@@ -954,13 +968,11 @@ device_sample_count_from_gui = 0.0
 device_amplifier = False
 device_vga_gain_from_gui = 0
 
-
 ready_to_query = False
 currently_scanning = False
 horizontal_scan_points = 0
 horizontal_scan_elevation = 0
 
-# Variables
 telemetry_data_1 = None
 telemetry_data_2 = None
 graph_data = None
@@ -1023,4 +1035,6 @@ inbound_data_queue = queue.Queue()
 # device.assign_signal_processor(signal_processor=sp)
 # device.initialize()
 
-gui()
+if __name__ == "__main__":
+    logger = create_logger()
+    gui()

@@ -147,6 +147,24 @@ class Signal:
     def to_string(self):
         return f"Signal: {self.start_freq} - {self.end_freq} MHz, {self.peak_power_db} dBm, {self.peak_freq} MHz, position: {self.x}, {self.y}"
 
+    def to_csv_string(self):
+        return f"{self.start_freq},{self.end_freq},{self.bandwidth},{self.peak_power_db},{self.peak_freq},{self.x},{self.y},{self.channel},{self.potential_channels}"
+
+    def csv_header(self):
+        return "Start Frequency,End Frequency,Bandwidth,Peak Power (dBm),Peak Frequency,Position X,Position Y,Channel,Potential Channels"
+
+    def to_log_string(self):
+        return f"Signal ID: {self.id}\n" \
+               f"Start Frequency: {self.start_freq} MHz\n" \
+               f"End Frequency: {self.end_freq} MHz\n" \
+               f"Bandwidth: {self.bandwidth} MHz\n" \
+               f"Peak Power: {self.peak_power_db} dBm\n" \
+               f"Peak Frequency: {self.peak_freq} MHz\n" \
+               f"Position X: {self.x}\n" \
+               f"Position Y: {self.y}\n" \
+               f"Channel: {self.channel}\n" \
+               f"Potential Channels: {self.potential_channels}"
+
     def new_id(self):
         global id
         id += 1
