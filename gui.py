@@ -440,14 +440,14 @@ def draw_signals_on_compass():
 def update_signals_table():
 
     for signal in device.active_signals:
-        sid = "signal_" + str(device.active_signals.index(signal))
+        sid = "signal_" + str(signal.id)
         if dpg.does_item_exist(sid):
             dpg.delete_item(sid)
         with dpg.table_row(
             parent="signals_table",
             tag=sid,
         ):
-            dpg.add_text(sid)
+            dpg.add_text(signal.channel)
             dpg.add_text(signal.x)
             dpg.add_text(signal.y)
             dpg.add_text(signal.start_freq)
