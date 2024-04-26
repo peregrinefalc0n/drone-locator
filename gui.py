@@ -74,6 +74,19 @@ def gui_query_thread_method():
                 # print("Device was stopped")
                 currently_scanning = False
                 device_thread = None
+                
+        if command == "perform_section_scan":
+            currently_scanning = True
+            try:
+                device_thread = threading.Thread(
+                    target=perform_section_scan_method, daemon=True
+                )
+                device_thread.start()
+            except esp32_controller.stopEverything:
+                # print("Device was stopped")
+                currently_scanning = False
+                device_thread = None
+            
 
         if command == "move_antenna_front":
             device.go_to_forward()
@@ -106,6 +119,17 @@ def perform_horizontal_scan_method():
         # print("Device was stopped")
         currently_scanning = False
 
+def perform_section_scan_method():
+    global inbound_data_queue, currently_scanning, horizontal_scan_points, horizontal_scan_elevation
+    inbound_data_queue = device.return_queue
+    try:
+        device.horizontal_section_sweep_precise(
+            number_of_points=horizontal_scan_points, y_level=horizontal_scan_elevation
+        )
+        currently_scanning = False
+    except esp32_controller.stopEverything:
+        # print("Device was stopped")
+        currently_scanning = False
 
 def perform_full_scan_method():
     global inbound_data_queue, currently_scanning
@@ -180,6 +204,13 @@ def button_callback(sender, app_data, user_data):
         horizontal_scan_elevation = dpg.get_value("horizontal_scan_elevation")
         # dpg.disable_item("perform_horizontal_scan_button")
         outbound_command_queue.put("perform_horizontal_scan")
+    elif sender == "start_section_scan_button":
+        # update global variables
+        horizontal_scan_points = dpg.get_value("horizontal_scan_points")
+        horizontal_scan_elevation = dpg.get_value("horizontal_scan_elevation")
+        # dpg.disable_item("perform_horizontal_scan_button")
+        outbound_command_queue.put("perform_section_scan")
+    
     elif sender == "stop_scan_button":
         outbound_command_queue.put("stop_device")
         # dpg.enable_item("perform_horizontal_scan_button")
@@ -611,6 +642,63 @@ def gui():
                         min_clamped=True,
                         max_clamped=True,
                     )
+                
+                with dpg.group(horizontal=False):
+                    with dpg.group(horizontal=True):
+                        dpg.add_button(
+                            tag="start_section_scan_button",
+                            label="Start Section Scan",
+                            enabled=False,
+                            callback=button_callback,
+                            width=175,
+                        )
+                        # dpg.add_spacer(width=0)
+                        dpg.add_input_int(
+                            tag="horizontal_scan_points",
+                            label="x",
+                            default_value=360,
+                            min_value=1,
+                            max_value=4096,
+                            width=80,
+                            min_clamped=True,
+                            max_clamped=True,
+                        )
+                        # dpg.add_spacer(width=0)
+                        dpg.add_input_int(
+                            tag="horizontal_scan_elevation",
+                            label="h",
+                            default_value=1024,
+                            min_value=700,
+                            max_value=2048,
+                            width=80,
+                            min_clamped=True,
+                            max_clamped=True,
+                        )
+                    with dpg.group(horizontal=True):
+                    #two integer inputs between 0 and 4096 that describe the section that will be scanned
+                        dpg.add_input_int(
+                            tag="section_scan_start",
+                            label="Start point",
+                            default_value=1024,
+                            min_value=0,
+                            max_value=4096,
+                            width=160,
+                            min_clamped=True,
+                            max_clamped=True,
+                        )
+                        
+                        dpg.add_spacer(width=15)
+                        
+                        dpg.add_input_int(
+                            tag="section_scan_end",
+                            label="End point",
+                            default_value=3072,
+                            min_value=0,
+                            max_value=4096,
+                            width=160,
+                            min_clamped=True,
+                            max_clamped=True,
+                        )         
 
                 dpg.add_button(
                     tag="perform_single_scan_button",
