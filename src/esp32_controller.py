@@ -171,7 +171,7 @@ class ESP32Controller:
         """Calculate n evenly spaced out positions between start and end."""
         positions = []
         for i in range(n):
-            position = start + i * ((end - start) / n)
+            position = int(start + i * ((end - start) // n))
             positions.append(position)
         return positions
     
@@ -537,7 +537,7 @@ class ESP32Controller:
 
                 if not self.__inRange(self.CURRENT_POSITION_2, y_level, 10):
                     self.__move_to(2, y_level)
-                self.__move_to_and_wait_for_complete(1, x_position[1])
+                self.__move_to_and_wait_for_complete(1, x_position)
                 scan_data = self.perform_scan(offset=10, show_graph=show_graph)
                 # x,y,start_freq,end_freq,peak_freq,peak_power_db
                 x = self.CURRENT_POSITION_1
@@ -604,7 +604,7 @@ class ESP32Controller:
                                     signal_frequency_return,
                                     signal_power_return,
                                 ) = self.find_strongest_point_of_signal(
-                                    x_position[1],
+                                    x_position,
                                     y_level,
                                     signal.peak_freq,
                                     signal.peak_power_db,
