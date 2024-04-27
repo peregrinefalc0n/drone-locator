@@ -162,6 +162,7 @@ class Signal:
                f"Peak Frequency: {self.peak_freq} MHz\n" \
                f"Position X: {self.x}\n" \
                f"Position Y: {self.y}\n" \
+               f"Has Channel: {'YES' if self.channel is not None else 'NO'}\n" \
                f"Channel: {self.channel}\n" \
                f"Potential Channels: {self.potential_channels}"
 
@@ -309,7 +310,7 @@ def calculate_signal_channel(signal:Signal):
             if signal.peak_freq >= freq_range[0] and signal.peak_freq <= freq_range[1]:
                 signal.potential_channels.append(f"{channel}{i+1}")
     
-    if signal.channel is None:
+    if signal.channel is None or len(signal.potential_channels) == 0:
         signal.channel = "Unclear"
         return False
     
