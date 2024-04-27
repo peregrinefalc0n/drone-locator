@@ -300,7 +300,7 @@ def calculate_signal_channel(signal:Signal):
     for channel, center_freq_list in channel_center_freq_list.items():
         if round(signal.peak_freq) in center_freq_list:
             signal.channel = channel + str(
-                center_freq_list.index(round(signal.peak_freq))
+                center_freq_list.index(round(signal.peak_freq)) + 1
             )
             break
 
@@ -312,7 +312,7 @@ def calculate_signal_channel(signal:Signal):
         for freq_range in freq_range_list:
             if signal.peak_freq >= freq_range[0] and signal.peak_freq <= freq_range[1]:
                 signal.potential_channels.append(
-                    channel + str(freq_range_list.index(freq_range))
+                    channel + str(freq_range_list.index(freq_range) + 1)
                 )
                 break
 
