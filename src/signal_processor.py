@@ -297,28 +297,22 @@ def calculate_signal_channel(signal:Signal):
     If no channel is a direct fit, assigns potential channels to signals based on their peak frequencies. \n
     """
     # if signals peak freq is exactly a channel center freq, assign the channel to that signal
-    for channel, center_freq_list in channel_center_freq_list.items():
-        if round(signal.peak_freq) in center_freq_list:
-            signal.channel = channel + str(
-                center_freq_list.index(round(signal.peak_freq)) + 1
-            )
-            break
-
-    if signal.channel is not None:
-        return True
+    for channel, frequencies in channel_center_freq_list.items():
+        for i, freq in enumerate(frequencies):
+            if int(signal.peak_freq) == freq:
+                signal.channel = f"{channel}{i+1}"
+                return True
 
     # assign potential channels to signals based on their peak freq
-    for channel, freq_range_list in channel_freq_range_list.items():
-        for freq_range in freq_range_list:
+    for channel, frequencies in channel_freq_range_list.items():
+        for i, freq_range in enumerate(frequencies):
             if signal.peak_freq >= freq_range[0] and signal.peak_freq <= freq_range[1]:
-                signal.potential_channels.append(
-                    channel + str(freq_range_list.index(freq_range) + 1)
-                )
-                break
-
+                signal.potential_channels.append(f"{channel}{i+1}")
+    
     if signal.channel is None:
-        signal.channel = "Unknown"
+        signal.channel = "Unclear"
         return False
+    
     return True
 
 
