@@ -219,26 +219,26 @@ class SignalProcessor:
             return_line=False,
         )
         raw_data = [pxx, freqs]
-
+        
         level_of_interest_db = 0.0
-        level_of_interest_db_max = -25.0
-        level_of_interest_db_min = -55.0
+        level_of_interest_db_max = -30.0
+        level_of_interest_db_min = -50.0
 
         # Set the level of interest to the minimum power + offset
         if self.manual_offset_in_use:
             level_of_interest_db = self.manual_offset_value
             self.db_offset_in_use = level_of_interest_db
         else:
-            select_count = (self.fft_count // 2) - 24
+            select_count = (self.fft_count // 2) - 12 #so for example with 2048 samples we ignore the middle 24 samples (12 from each side) to avoid the DC spike
             # Take the first half of samples to avoid the DC spike
-            pxx_sample = pxx[:select_count]
-            freqs_sample = freqs[:select_count]
+            pxx_sample = pxx[:select_count].extend(pxx[select_count:])
+            freqs_sample = freqs[:select_count].extend(freqs[select_count:])
 
             # Find the minimum power in the sample to which we add the average power to get the level of interest
             min_index = np.argmin(pxx_sample)
-            avg_pxx_db = self.mW_to_dBm(np.average(pxx_sample))  # avg value
+            median_pxx_db = self.mW_to_dBm(np.median(pxx_sample))  # median value
             min_pxx_db = self.mW_to_dBm(pxx_sample[min_index])  # min value
-            level_of_interest_db = min_pxx_db + 4 * (abs(min_pxx_db) - abs(avg_pxx_db))
+            level_of_interest_db = min_pxx_db + 2 * abs(abs(min_pxx_db) - abs(median_pxx_db))
             # print(min_pxx_db, avg_pxx_db, level_of_interest_db, self.db_offset_in_use)
 
         # Limit the level of interest to the max and min values
