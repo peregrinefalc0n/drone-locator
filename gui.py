@@ -5,6 +5,7 @@ import dearpygui_map as dpg_map
 from math import sin, cos
 from src import esp32_controller
 from src import signal_processor
+from src.data_structs import ChannelDict
 import time
 import threading
 import queue
@@ -21,7 +22,8 @@ def gui_query_thread_method():
 
         if command == "start_device":
             device = esp32_controller.ESP32Controller()
-            sp = signal_processor.SignalProcessor(id=hackrf_id)
+            database = ChannelDict()
+            sp = signal_processor.SignalProcessor(id=hackrf_id, database=database)
             device.assign_signal_processor(signal_processor=sp)
             device.initialize()
             device_center_frequency_from_gui = device.sp.hackrf.center_freq

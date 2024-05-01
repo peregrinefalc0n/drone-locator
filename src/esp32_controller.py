@@ -109,6 +109,10 @@ class ESP32Controller:
         """Assign a signal processor to the ESP32 controller."""
         self.sp = signal_processor
 
+    def assign_database(self, database):
+        """Assign a database to the ESP32 controller."""
+        self.database = database
+    
     def __y_future_within_bounds(self, location: int) -> bool:
         """Check if the future y-axis location is within the bounds of the vertical servo safe operation. \n
         These values should be edited if servo movement range is expanded or reduced on the physical device.
@@ -723,7 +727,7 @@ class ESP32Controller:
         # )
         # if int(telemetry_1['temperature']) >= 50 or int(telemetry_2['temperature']) >= 50:
         #    raise ServoTemperatureTooHigh("Servo temperature too high.")
-        signals, raw_data = self.sp.get_signals()
+        signals, raw_data = self.sp.get_signals(telemetry_1["position"], telemetry_2["position"])
         # print("Signals found: ", len(signals))
         # for i, signal in enumerate(signals):
         # print(

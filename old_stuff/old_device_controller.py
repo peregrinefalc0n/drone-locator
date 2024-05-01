@@ -393,7 +393,7 @@ def perform_scan(esp32, n, angle, x, y):
     print(f"[{n}]Performing scan at x angle {angle} and x {x}, y {y}. Temp1 {telemetry_1['temperature']} Temp2 {telemetry_2['temperature']}.")
     #if int(telemetry_1['temperature']) >= 50 or int(telemetry_2['temperature']) >= 50:
     #    raise ServoTemperatureTooHigh("Servo temperature too high.")
-    signals = sp.get_signals(offset=10)
+    signals = sp.get_signals(x, y)
     print("Signals found: ", len(signals))
     for i,signal in enumerate(signals):
         print(f"[{i}] Signal from", signal.start_freq, "to", signal.end_freq, "with peak power of", signal.peak_power_db, " at freq ", signal.peak_freq)
