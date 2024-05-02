@@ -221,7 +221,7 @@ class SignalProcessor:
         raw_data = [pxx, freqs]
 
         level_of_interest_db = 0.0
-        level_of_interest_db_max = -25.0
+        level_of_interest_db_max = -45.0
         level_of_interest_db_min = -55.0
 
         # Set the level of interest to the minimum power + offset
@@ -300,7 +300,7 @@ def calculate_signal_channel(signal:Signal):
     # if signals peak freq is exactly a channel center freq, assign the channel to that signal
     for channel, frequencies in channel_center_freq_list.items():
         for i, freq in enumerate(frequencies):
-            if int(signal.peak_freq) == freq:
+            if round(signal.peak_freq, ndigits=None) == freq:
                 signal.channel = f"{channel}{i+1}"
                 return True
 
