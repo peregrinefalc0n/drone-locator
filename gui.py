@@ -1,7 +1,6 @@
 import math
 import dearpygui.dearpygui as dpg
 import dearpygui.demo as demo
-import dearpygui_map as dpg_map
 from math import sin, cos
 from src import esp32_controller
 from src import signal_processor
