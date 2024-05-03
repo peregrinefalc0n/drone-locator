@@ -552,6 +552,7 @@ class ESP32Controller:
                                     signal.peak_power_db,
                                     signal.start_freq,
                                     signal.end_freq,
+                                    search_radius=200,
                                 )
                                 # print(
                                 #    "Found a stronger signal position: ",
@@ -690,6 +691,7 @@ class ESP32Controller:
                                     signal.peak_power_db,
                                     signal.start_freq,
                                     signal.end_freq,
+                                    search_radius=200
                                 )
                                 # print(
                                 #    "Found a stronger signal position: ",
@@ -731,6 +733,7 @@ class ESP32Controller:
         prev_signal_power,
         prev_signal_start_freq,
         prev_signal_end_freq,
+        search_radius,
     ):
         """Finds the strongest point of a signal by moving the device to the location of the signal and scanning again. If a stronger signal is found, it moves to that location and scans again. This process is repeated until no stronger signal is found."""
         x_return = prev_x
@@ -738,7 +741,12 @@ class ESP32Controller:
         signal_frequency_return = prev_signal_frequency
         signal_power_return = prev_signal_power
 
-        locations = self.calculate_circular_coordinates(prev_x, prev_y, 25, 8)
+        locations = self.calculate_circular_coordinates(prev_x, prev_y, search_radius, 8)
+
+        search_radius = search_radius // 2
+        if search_radius < 25:
+            return x_return, y_return, signal_frequency_return, signal_power_return
+            
 
         location_data = list()
         for location in locations:
@@ -769,6 +777,7 @@ class ESP32Controller:
                 prev_signal_power=new_strongest_signal_power,
                 prev_signal_start_freq=prev_signal_start_freq,
                 prev_signal_end_freq=prev_signal_end_freq,
+                search_radius=search_radius
             )
         else:
             return x_return, y_return, signal_frequency_return, signal_power_return

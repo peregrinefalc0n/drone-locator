@@ -183,7 +183,6 @@ def import_data_thread_method():
         text = ""
         for signal in signals:
             text += f"{signal.channel if signal.channel != None else '?'} | {round(signal.peak_freq, 4)} MHz | {signal.peak_power_db} dBm\n"
-            logger.info(signal.to_log_string())
         add_to_console_table(text)
 
 
@@ -268,7 +267,7 @@ def update_series():
 
     dpg.set_value("series_tag", [y, x])
     
-    if device.sp.db_offset_in_use is not None or device.sp.db_offset_in_use != 0.0:
+    if device.sp.db_offset_in_use is not None or device.sp.db_offset_in_use != 0:
         dpg.set_value("level_of_interest_line", [y, [device.sp.db_offset_in_use for i in range(len(y))]])
 
     dpg.fit_axis_data("y_axis")
@@ -353,10 +352,10 @@ def draw_signals_on_compass():
     # get starting point of signal line (point on the circle)
     global device
 
-    if device.active_channels is None or len(device.active_channels) == 0:
+    if device.active_channels is None:
         return
 
-    for i, channel in enumerate(device.active_channels.values()):
+    for i, channel in enumerate(device.active_channels.channels.values()):
         if channel.peak_power_db is None:
             continue
         
@@ -473,7 +472,7 @@ def draw_signals_on_compass():
 
 def update_signals_table():
 
-    for channel in device.active_channels.values():
+    for channel in device.active_channels.channels.values():
         if channel.peak_power_db is None:
             continue
 
