@@ -238,7 +238,7 @@ class SignalProcessor:
             min_index = np.argmin(pxx_sample)
             avg_pxx_db = self.mW_to_dBm(np.average(pxx_sample))  # avg value
             min_pxx_db = self.mW_to_dBm(pxx_sample[min_index])  # min value
-            level_of_interest_db = min_pxx_db + 4 * (abs(min_pxx_db) - abs(avg_pxx_db))
+            level_of_interest_db = min_pxx_db + 2 * abs(abs(min_pxx_db) - abs(avg_pxx_db))
             # print(min_pxx_db, avg_pxx_db, level_of_interest_db, self.db_offset_in_use)
 
         # Limit the level of interest to the max and min values
