@@ -59,6 +59,77 @@ class stopEverything(Exception):
         self.message = message
 
 
+class ChannelList:
+    """Class for managing the channels and signals found on the channels."""
+
+    a_ranges = [
+        [5850, 5880],
+        [5830, 5860],
+        [5810, 5840],
+        [5790, 5820],
+        [5770, 5800],
+        [5750, 5780],
+        [5730, 5760],
+        [5710, 5740],
+    ]
+
+    a_centers = [5865, 5845, 5825, 5805, 5785, 5765, 5745, 5725]
+
+
+    def __init__(self):
+        self.channels = dict()
+        self.__initialize_channels()
+
+    def __initialize_channels(self):
+        for i in range(1, 9):
+            channel = Channel(f"A{i}")
+            channel.start_freq = self.a_ranges[i - 1][0]
+            channel.end_freq = self.a_ranges[i - 1][1]
+            channel.peak_freq = self.a_centers[i - 1]
+            self.channels[f"A{i}"] = channel
+    
+    def update_channels(self, signal : signal_processor.Signal):
+        for channel in self.channels.values():
+            if signal.start_freq >= channel.start_freq and signal.end_freq <= channel.end_freq:
+                if channel.peak_power_db is None or signal.peak_power_db > channel.peak_power_db:
+                    channel.peak_power_db = signal.peak_power_db
+                    channel.peak_freq = signal.peak_freq
+                    channel.peak_x = signal.x
+                    channel.peak_y = signal.y
+                    channel.calc_angle()
+                    channel.position_history = signal.position_history
+                    return
+            
+
+class Channel():
+    """Class which represents a channel on the spectrum."""
+    def __init__(self, name):
+        self.start_freq = None
+        self.end_freq = None
+        
+        self.peak_freq = None
+        self.peak_power_db = None
+        self.peak_x = None
+        self.peak_y = None
+        
+        self.name = name
+        
+        self.horizontal_angle = None
+        self.vertical_angle = None
+        
+        self.position_history = []
+            
+    def calc_angle(self):
+        # calculate the angle of the peak signal
+        # if peak x is at 0 we are at -180 degrees, if peak x is at 4096 we are at 180 degrees, if peak x is at 2048 we are at 0 degrees
+        self.horizontal_angle = (self.peak_x - 2048) / 2048 * 180
+        
+        # calculate the vertical angle of the peak signal
+        #if y is at 1024 we are at 0 degrees, if y is at 2048 we are at 90 degrees, if y is at 700 we are at -30 degrees
+        self.vertical_angle = (self.peak_y - 1024) / 1024 * 90
+
+    
+
 class ESP32Controller:
     """Class for communicating with ESP32 and controlling the connected servos."""
 
@@ -76,6 +147,7 @@ class ESP32Controller:
         self.stop_everything = False
         self.return_queue = queue.Queue()
         self.active_signals = []  # x,y,start_freq,end_freq,peak_freq,peak_power_db
+        self.active_channels = ChannelList()
 
         self.GLOBAL_ACC = 100
         self.GLOBAL_SPEED = 2000
@@ -118,8 +190,6 @@ class ESP32Controller:
     def __inRange(self, actual, expected, range):
         """Check if the actual value is within the expected value with a given range."""
         return abs(actual - expected) <= range
-
-
 
     def __calculate_vertical_movement_distances(self, n):
         """Returns a list of y-axis positions for the vertical servo to move to.\n
@@ -174,7 +244,7 @@ class ESP32Controller:
             position = int(start + i * ((end - start) // n))
             positions.append(position)
         return positions
-    
+
     def __collectGarbage(self):
         print("Serial port opened.")
         time.sleep(1)
@@ -394,7 +464,7 @@ class ESP32Controller:
         skip_first = False
 
         while not self.stop_everything:  # continious sweeping
-            #for s in self.active_signals:
+            # for s in self.active_signals:
             #    s.update_sweep_list()  # add an empty sweep list to populate in each signals history list
             #    if not skip_first:
             #        s.inc_sweep_id()  # increment the sweep id for each signal
@@ -419,15 +489,16 @@ class ESP32Controller:
                 # peak_power_db = scan_data[0][0].peak_power_db
                 if len(scan_data[0]) > 0:  # if we got signals on this scan
                     for signal in scan_data[0]:
-                        #print("Found signals:", len(scan_data[0]))
+                        # print("Found signals:", len(scan_data[0]))
                         if len(self.active_signals) == 0:
                             signal.x = x
                             signal.y = y
                             self.active_signals.append(signal)
-                            #print(
+                            self.active_channels.update_channels(signal)
+                            # print(
                             #    "[len(active signals) == 0] Added completely new signal to active signals",
                             #    signal.to_string(),
-                            #)
+                            # )
                             signal.update_sweep_list()
 
                         # check if signal is already in active signals, if it is, update it
@@ -482,11 +553,11 @@ class ESP32Controller:
                                     signal.start_freq,
                                     signal.end_freq,
                                 )
-                                #print(
+                                # print(
                                 #    "Found a stronger signal position: ",
                                 #    x_return,
                                 #    y_return,
-                                #)
+                                # )
                                 # update existing signal with new stronger signal position data
                                 existing_signal.x = x_return
                                 existing_signal.y = y_return
@@ -500,9 +571,10 @@ class ESP32Controller:
                             signal.x = x
                             signal.y = y
                             self.active_signals.append(signal)
-                            #print(
+                            self.active_channels.update_channels(signal)
+                            # print(
                             #    "Added new signal to active signals", signal.to_string()
-                            #)
+                            # )
                             signal.update_sweep_list()
             # self.return_queue.put((signals, raw_data, telem1, telem2), block=False, timeout=0)
             # print(len(signals), len(raw_data), len(telem1), len(telem2))
@@ -513,17 +585,24 @@ class ESP32Controller:
             raise stopEverything("User stopped infinite horizontal precise scan.")
 
     def horizontal_section_sweep_precise(
-        self, section_start, section_end, show_graph=False, number_of_points=12, y_level=1024
+        self,
+        section_start,
+        section_end,
+        show_graph=False,
+        number_of_points=12,
+        y_level=1024,
     ):
         """Perform a horizontal sweep scan at y_level with the specified number of points."""
         self.__move_to_and_wait_for_complete(servo_id=2, expected_pos=y_level)
-        x_positions = self.__calculate_n_positions_over_section(section_start, section_end, number_of_points)
+        x_positions = self.__calculate_n_positions_over_section(
+            section_start, section_end, number_of_points
+        )
 
         reverse = False
         skip_first = False
 
         while not self.stop_everything:  # continious sweeping
-            #for s in self.active_signals:
+            # for s in self.active_signals:
             #    s.update_sweep_list()  # add an empty sweep list to populate in each signals history list
             #    if not skip_first:
             #        s.inc_sweep_id()  # increment the sweep id for each signal
@@ -548,15 +627,16 @@ class ESP32Controller:
                 # peak_power_db = scan_data[0][0].peak_power_db
                 if len(scan_data[0]) > 0:  # if we got signals on this scan
                     for signal in scan_data[0]:
-                        #print("Found signals:", len(scan_data[0]))
+                        # print("Found signals:", len(scan_data[0]))
                         if len(self.active_signals) == 0:
                             signal.x = x
                             signal.y = y
                             self.active_signals.append(signal)
-                            #print(
+                            self.active_channels.update_channels(signal)
+                            # print(
                             #    "[len(active signals) == 0] Added completely new signal to active signals",
                             #    signal.to_string(),
-                            #)
+                            # )
                             signal.update_sweep_list()
 
                         # check if signal is already in active signals, if it is, update it
@@ -611,11 +691,11 @@ class ESP32Controller:
                                     signal.start_freq,
                                     signal.end_freq,
                                 )
-                                #print(
+                                # print(
                                 #    "Found a stronger signal position: ",
                                 #    x_return,
                                 #    y_return,
-                                #)
+                                # )
                                 # update existing signal with new stronger signal position data
                                 existing_signal.x = x_return
                                 existing_signal.y = y_return
@@ -629,9 +709,10 @@ class ESP32Controller:
                             signal.x = x
                             signal.y = y
                             self.active_signals.append(signal)
-                            #print(
+                            self.active_channels.update_channels(signal)
+                            # print(
                             #    "Added new signal to active signals", signal.to_string()
-                            #)
+                            # )
                             signal.update_sweep_list()
             # self.return_queue.put((signals, raw_data, telem1, telem2), block=False, timeout=0)
             # print(len(signals), len(raw_data), len(telem1), len(telem2))

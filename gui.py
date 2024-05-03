@@ -353,19 +353,19 @@ def draw_signals_on_compass():
     # get starting point of signal line (point on the circle)
     global device
 
-    if device.active_signals is None or len(device.active_signals) == 0:
+    if device.active_channels is None or len(device.active_channels) == 0:
         return
 
-    for i, signal in enumerate(device.active_signals):
-        # get the signal's direction and strength
-        sid = signal.id
-        signal_direction = signal.x
-        signal_strength = signal.peak_power_db
-        signal_id = f"signal_strength_line_{sid}"
-        
-        if not signal_processor.calculate_signal_channel(signal):
+    for i, channel in enumerate(device.active_channels.values()):
+        if channel.peak_power_db is None:
             continue
-            
+        
+        # get the signal's direction and strength
+        sid = channel.name
+        signal_direction = channel.peak_x
+        signal_strength = channel.peak_power_db
+        signal_id = f"signal_strength_line_{sid}"
+
         # offset adjustment (add 90 degrees to the position of each signal line)
         offset = 1024
 
@@ -442,7 +442,8 @@ def draw_signals_on_compass():
         # global telemetry_data_1
         # for this signal, also draw the last two sweeps worth of positions
         #print(len(signal.position_history), signal.position_history)      
-        for i, sweep in enumerate(signal.position_history):
+        
+        for i, sweep in enumerate(channel.position_history):
             for j, position in enumerate(sweep):
                 x_start = 400 + 200 * math.cos(
                     (position[0] + offset) * 2 * math.pi / 4096
@@ -472,27 +473,24 @@ def draw_signals_on_compass():
 
 def update_signals_table():
 
-    for signal in device.active_signals:
-        sid = "signal_" + str(signal.id)
-        if dpg.does_item_exist(sid):
-            dpg.delete_item(sid)
+    for channel in device.active_channels.values():
+        if channel.peak_power_db is None:
+            continue
+
+        if dpg.does_item_exist(channel.name):
+            dpg.delete_item(channel.name)
         with dpg.table_row(
             parent="signals_table",
-            tag=sid,
+            tag=channel.name,
         ):
-            dpg.add_text(signal.channel)
-            dpg.add_text(signal.x)
-            dpg.add_text(signal.y)
-            dpg.add_text(signal.start_freq)
-            dpg.add_text(signal.end_freq)
-            dpg.add_text(signal.peak_power_db)
-            dpg.add_text(signal.peak_freq)
-
-            # signal.y,
-            # signal.start_freq,
-            # signal.end_freq,
-            # signal.peak_power_db,
-            # signal.peak_freq,
+            dpg.add_text(channel.name)
+            dpg.add_text(channel.start_freq)
+            dpg.add_text(channel.end_freq)
+            dpg.add_text(channel.peak_x)
+            dpg.add_text(channel.peak_y)
+            dpg.add_text(channel.horizontal_angle)
+            dpg.add_text(channel.peak_power_db)
+            dpg.add_text(channel.peak_freq)
 
 
 def update_compass():
@@ -865,13 +863,14 @@ def gui():
                 with dpg.table(
                     tag="signals_table", borders_innerH=True, borders_innerV=True
                 ):
-                    dpg.add_table_column(label="Signal ID")
+                    dpg.add_table_column(label="Channel")
+                    dpg.add_table_column(label="Start")
+                    dpg.add_table_column(label="End")
                     dpg.add_table_column(label="X")
                     dpg.add_table_column(label="Y")
-                    dpg.add_table_column(label="Start Frequency")
-                    dpg.add_table_column(label="End Frequency")
-                    dpg.add_table_column(label="Peak Power")
-                    dpg.add_table_column(label="Peak Frequency")
+                    dpg.add_table_column(label="Angle")
+                    dpg.add_table_column(label="Peak (dBm)")
+                    dpg.add_table_column(label="Peak (MHz)")
 
         with dpg.group(label="bottom_area", horizontal=True):
 
