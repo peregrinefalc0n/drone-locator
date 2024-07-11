@@ -540,32 +540,14 @@ class ESP32Controller:
                                 if signal.peak_power_db < existing_signal.peak_power_db:
                                     continue
                                 # its stronger, first check if an even stronger is nearby
-                                (
-                                    x_return,
-                                    y_return,
-                                    signal_frequency_return,
-                                    signal_power_return,
-                                ) = self.find_strongest_point_of_signal(
-                                    x_position[1],
-                                    y_level,
-                                    signal.peak_freq,
-                                    signal.peak_power_db,
-                                    signal.start_freq,
-                                    signal.end_freq,
-                                    search_radius=200,
-                                )
+                                
                                 # print(
                                 #    "Found a stronger signal position: ",
                                 #    x_return,
                                 #    y_return,
                                 # )
                                 # update existing signal with new stronger signal position data
-                                existing_signal.x = x_return
-                                existing_signal.y = y_return
-                                existing_signal.peak_freq = signal_frequency_return
-                                existing_signal.peak_power_db = signal_power_return
-                                existing_signal.start_freq = signal.start_freq
-                                existing_signal.end_freq = signal.end_freq
+
                                 # x,y,signal
                                 break
                         if this_signal_is_new:
@@ -679,30 +661,17 @@ class ESP32Controller:
                                 if signal.peak_power_db < existing_signal.peak_power_db:
                                     continue
                                 # its stronger, first check if an even stronger is nearby
-                                (
-                                    x_return,
-                                    y_return,
-                                    signal_frequency_return,
-                                    signal_power_return,
-                                ) = self.find_strongest_point_of_signal(
-                                    x_position,
-                                    y_level,
-                                    signal.peak_freq,
-                                    signal.peak_power_db,
-                                    signal.start_freq,
-                                    signal.end_freq,
-                                    search_radius=200
-                                )
+                                
                                 # print(
                                 #    "Found a stronger signal position: ",
                                 #    x_return,
                                 #    y_return,
                                 # )
                                 # update existing signal with new stronger signal position data
-                                existing_signal.x = x_return
-                                existing_signal.y = y_return
-                                existing_signal.peak_freq = signal_frequency_return
-                                existing_signal.peak_power_db = signal_power_return
+                                existing_signal.x = self.CURRENT_POSITION_1
+                                existing_signal.y = self.CURRENT_POSITION_2
+                                existing_signal.peak_freq = signal.peak_freq
+                                existing_signal.peak_power_db = signal.peak_power_db
                                 existing_signal.start_freq = signal.start_freq
                                 existing_signal.end_freq = signal.end_freq
                                 # x,y,signal
