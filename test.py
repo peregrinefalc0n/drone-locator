@@ -12,12 +12,13 @@ if __name__ == "__main__":
     device.initialize()
 
     try:
-        print("START OF TEST")
         p = input("Enter power: ")
         d = input("Enter distance: ")
         n = input("Enter number of points: ")
         
-        device.section_TEST(power=p, distance=d, number_of_points=n, show_graph=False)
+        print(f"START OF TEST WITH POWER: {p}mw, DISTANCE: {d}m, NUMBER OF POINTS: {n}")
+        
+        device.section_TEST(power=p, distance=d, number_of_points=int(n), show_graph=False)
         
         print("END OF TEST")
 
