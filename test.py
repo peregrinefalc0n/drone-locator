@@ -16,6 +16,8 @@ if __name__ == "__main__":
         d = input("Enter distance: ")
         n = input("Enter number of points: ")
         
+        input("Press enter to start test!")
+        
         print(f"START OF TEST WITH POWER: {p}mw, DISTANCE: {d}m, NUMBER OF POINTS: {n}")
         
         #5760 - 5810 is best for antenna

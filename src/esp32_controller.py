@@ -803,7 +803,7 @@ class ESP32Controller:
                     for signal in scan_data[0]:
                         self.active_channels.update_channels(signal)
              
-                        # print("Found signals:", len(scan_data[0]))
+                        print("Found signals:", len(scan_data[0]))
                         if len(self.active_signals) == 0:
                             signal.x = x
                             signal.y = y
@@ -883,9 +883,6 @@ class ESP32Controller:
             # while loop variables
             reverse = not reverse
             #skip_first = True
-        else:
-            f.close()
-            raise stopEverything("User stopped TEST.")
         f.close()
         
         #for safety go to front position when all is done     
