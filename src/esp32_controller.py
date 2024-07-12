@@ -797,7 +797,6 @@ class ESP32Controller:
 
                 if len(scan_data[0]) > 0:  # if we got signals on this scan
                     for signal in scan_data[0]:
-                        #print(f"Signal strength: {signal.peak_power_db}")
                         self.active_channels.update_channels(signal)
 
             f.write(f'{time.strftime("%H_%M_%S")},{sweep_nr},{"H" if horizontal else "V"},{self.active_channels.to_csv_string_active_channels()}\n')
