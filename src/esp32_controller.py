@@ -84,21 +84,23 @@ class ChannelList:
             channel = Channel(f"A{i}")
             channel.start_freq = self.a_ranges[i - 1][0]
             channel.end_freq = self.a_ranges[i - 1][1]
-            channel.peak_freq = self.a_centers[i - 1]
             self.channels[f"A{i}"] = channel
     
     def update_channels(self, signal : signal_processor.Signal):
-        for channel in self.channels.values():
-            if signal.start_freq >= channel.start_freq and signal.end_freq <= channel.end_freq:
-                if channel.peak_power_db is None or signal.peak_power_db >= channel.peak_power_db:
-                    print(f"Updating channel {channel.name} with signal {signal.to_string()}")
-                    channel.peak_power_db = signal.peak_power_db
-                    channel.peak_freq = signal.peak_freq
-                    channel.peak_x = signal.x
-                    channel.peak_y = signal.y
-                    channel.calc_angle()
-                    channel.position_history = signal.position_history
-                    return
+        try:
+            channel = self.channels[signal.channel]
+            if channel.peak_power_db is None or signal.peak_power_db >= channel.peak_power_db:
+                print(f"Updating channel {channel.name} with signal {signal.to_string()}")
+                channel.peak_power_db = signal.peak_power_db
+                channel.peak_freq = signal.peak_freq
+                channel.peak_x = signal.x
+                channel.peak_y = signal.y
+                channel.calc_angle()
+                channel.position_history = signal.position_history
+                return
+        except KeyError:
+            print(f"Signal {signal.to_string()} is not within any channel range.")
+            return
     
     def to_csv_string_active_channels(self):
         s = ""
