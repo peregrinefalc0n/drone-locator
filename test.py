@@ -38,7 +38,7 @@ if __name__ == "__main__":
         device.sp.hackrf.vga_gain = 16
         
         #run the test of five vertical sweeps and five horizontal sweeps
-        device.section_TEST(power=p, distance=d, number_of_points=int(n), show_graph=False)
+        device.section_TEST(power=p, distance=d, number_of_points=int(n), show_graph=False, file=f)
         
         print("END OF TEST")
         

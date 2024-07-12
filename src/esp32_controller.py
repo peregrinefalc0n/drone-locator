@@ -729,7 +729,7 @@ class ESP32Controller:
         number_of_points,
         distance,
         power,
-        filename,
+        file,
         show_graph=False,
     ):
         """Perform a sweep scan with the specified number of points for both horizontal and vertical fault measurement."""
@@ -751,8 +751,7 @@ class ESP32Controller:
         vertical = False
 
         #open a file to write logs to
-        f.open(filename)
-        f.write("timestamp, testnumber, testtype, ch_name, ch_peak_freq, ch_peak_freq_start, ch_peak_freq_end, ch_peak_power_db, ch_peak_x, ch_peak_y, ch_horizontal_angle, ch_vertical_angle\n")
+        file.write("timestamp, testnumber, testtype, ch_name, ch_peak_freq, ch_peak_freq_start, ch_peak_freq_end, ch_peak_power_db, ch_peak_x, ch_peak_y, ch_horizontal_angle, ch_vertical_angle\n")
 
         while not self.stop_everything:  # continious sweeping
             if sweep_nr < 5:
@@ -799,11 +798,11 @@ class ESP32Controller:
                     for signal in scan_data[0]:
                         self.active_channels.update_channels(signal)
 
-            f.write(f'{time.strftime("%H_%M_%S")},{sweep_nr},{"H" if horizontal else "V"},{self.active_channels.to_csv_string_active_channels()}\n')
+            file.write(f'{time.strftime("%H_%M_%S")},{sweep_nr},{"H" if horizontal else "V"},{self.active_channels.to_csv_string_active_channels()}\n')
             #reset the active channels for the next sweep to start fresh
             self.active_channels.reset_channels()
             reverse = not reverse
-        f.close()
+        file.close()
         
         #for safety go to front position when all is done     
         self.__move_to_and_wait_for_complete(servo_id=2, expected_pos=1024)
