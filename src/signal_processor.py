@@ -184,7 +184,7 @@ class SignalProcessor:
     Method get_signals returns a list of signals that are above the noise floor by the given offset in dBm. \n
     """
 
-    def __init__(self, id, sample_rate=20e6, sample_count=1e6, center_freq=5772e6):
+    def __init__(self, id, sample_rate=20e6, sample_count=1e6, center_freq=5785e6):
         self.device_id = id
         self.sample_count = sample_count
         self.fft_count = 2048

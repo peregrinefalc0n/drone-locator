@@ -18,6 +18,11 @@ if __name__ == "__main__":
         
         print(f"START OF TEST WITH POWER: {p}mw, DISTANCE: {d}m, NUMBER OF POINTS: {n}")
         
+        #5760 - 5810 is best for antenna
+        #A5 sits at 5785 and with a 20hmz bandwidth it goes from 5775 to 5795 thus is in the middle of the best range for our directional antenna
+        #center is thus 5785mhz or 5.785ghz
+        
+        
         device.section_TEST(power=p, distance=d, number_of_points=int(n), show_graph=False)
         
         print("END OF TEST")
