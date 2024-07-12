@@ -25,7 +25,7 @@ if __name__ == "__main__":
         #center is thus 5785mhz or 5.785ghz
         
         #Set the frequency to 5.785ghz, enable amp and set lna 0 vga 16
-        device.sp.hackrf.center_freq = 5785e6
+        device.sp.hackrf.center_freq = 5780e6
         device.sp.hackrf.amplifier_on = True
         device.sp.hackrf.lna_gain = 0
         device.sp.hackrf.vga_gain = 16
