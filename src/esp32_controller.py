@@ -729,6 +729,7 @@ class ESP32Controller:
         number_of_points,
         distance,
         power,
+        filename,
         show_graph=False,
     ):
         """Perform a sweep scan with the specified number of points for both horizontal and vertical fault measurement."""
@@ -750,9 +751,8 @@ class ESP32Controller:
         vertical = False
 
         #open a file to write logs to
-        os.makedirs("TESTS", exist_ok=True)
-        f = open(f'TESTS/TEST_time{time.strftime("%H_%M_%S")}_n{number_of_points}_distance{distance}_power{power}.csv', "w")
-        f.write("timestamp, testnumber, testtype, ch_name, ch_peak_freq, ch_peak_power_db, ch_peak_x, ch_peak_y, ch_horizontal_angle, ch_vertical_angle\n")
+        f.open(filename)
+        f.write("timestamp, testnumber, testtype, ch_name, ch_peak_freq, ch_peak_freq_start, ch_peak_freq_end, ch_peak_power_db, ch_peak_x, ch_peak_y, ch_horizontal_angle, ch_vertical_angle\n")
 
         while not self.stop_everything:  # continious sweeping
             if sweep_nr < 5:

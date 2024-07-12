@@ -1,9 +1,10 @@
 from src import esp32_controller
 from src import signal_processor
+import os, time
 
 import dearpygui.dearpygui as dpg
 
-
+from testplot import plot_data
 
 if __name__ == "__main__":
     device = esp32_controller.ESP32Controller()
@@ -15,6 +16,12 @@ if __name__ == "__main__":
         p = input("Enter power: ")
         d = input("Enter distance: ")
         n = input("Enter number of points: ")
+        t = time.strftime("%H_%M_%S")
+        filename = f'TESTS/TEST_time{t}_n{n}_distance{d}_power{p}.csv'
+        
+        os.makedirs("TESTS", exist_ok=True)
+        f = open(filename, "w")
+        
         
         input("Press enter to start test!")
         
@@ -34,6 +41,8 @@ if __name__ == "__main__":
         device.section_TEST(power=p, distance=d, number_of_points=int(n), show_graph=False)
         
         print("END OF TEST")
+        
+        plot_data(filename)
 
     except KeyboardInterrupt:
         pass

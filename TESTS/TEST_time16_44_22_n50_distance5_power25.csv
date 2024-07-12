@@ -1,4 +1,4 @@
-timestamp, testnumber, testtype, ch_name, ch_peak_freq, ch_peak_power_db, ch_peak_x, ch_peak_y, ch_horizontal_angle, ch_vertical_angle
+timestamp, testnumber, testtype, ch_name, ch_peak_freq, ch_peak_freq_start, ch_peak_freq_end, ch_peak_power_db, ch_peak_x, ch_peak_y, ch_horizontal_angle, ch_vertical_angle
 16_44_28,1,H,A5,5785.37109375,5785.263671875,5785.4296875,-39.5,1809,1021,-21.006,-0.264
 
 16_44_34,2,H,A5,5785.37109375,5785.263671875,5785.419921875,-40.88,2035,1021,-1.143,-0.264
