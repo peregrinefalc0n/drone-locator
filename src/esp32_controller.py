@@ -739,7 +739,7 @@ class ESP32Controller:
 
         #open a file to write logs to
         os.makedirs("TESTS", exist_ok=True)
-        f = open(f"TESTS/TEST_time{time.strftime("%H_%M_%S")}_n{number_of_points}_distance{distance}_power{power}.csv", "w")
+        f = open(f'TESTS/TEST_time{time.strftime("%H_%M_%S")}_n{number_of_points}_distance{distance}_power{power}.csv', "w")
         f.write("x,y,start_freq,end_freq,peak_freq,peak_power_db\n")
 
         while not self.stop_everything:  # continious sweeping
