@@ -100,11 +100,12 @@ class ChannelList:
                     return
     
     def to_csv_string_active_channels(self):
+        s = ""
         for channel in self.channels.values():
             if channel.peak_power_db is not None:
                 #all channel data
                 s += f"{channel.name},{channel.peak_freq},{channel.peak_power_db},{channel.horizontal_angle},{channel.vertical_angle},"
-        if s is not None:
+        if len(s) > 0:
             return s
         else:
             return "No Data on this sweep."
@@ -740,7 +741,7 @@ class ESP32Controller:
         #open a file to write logs to
         os.makedirs("TESTS", exist_ok=True)
         f = open(f'TESTS/TEST_time{time.strftime("%H_%M_%S")}_n{number_of_points}_distance{distance}_power{power}.csv', "w")
-        f.write("x,y,start_freq,end_freq,peak_freq,peak_power_db\n")
+        f.write("timestamp, testnumber, testtype,x,y,start_freq,end_freq,peak_freq,peak_power_db\n")
 
         while not self.stop_everything:  # continious sweeping
             # for s in self.active_signals:
@@ -883,6 +884,11 @@ class ESP32Controller:
             f.close()
             raise stopEverything("User stopped TEST.")
         f.close()
+        
+        #for safety go to front position when all is done     
+        self.__move_to_and_wait_for_complete(servo_id=2, expected_pos=1024)
+        self.__move_to_and_wait_for_complete(servo_id=1, expected_pos=2048)
+        
 
 
     def find_strongest_point_of_signal(
