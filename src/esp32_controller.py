@@ -89,12 +89,14 @@ class ChannelList:
     def update_channels(self, signal : signal_processor.Signal):
         try:
             channel = self.channels[signal.channel]
-            if channel.peak_power_db is None or signal.peak_power_db >= channel.peak_power_db:
-                print(f"Updating channel {channel.name} with signal {signal.to_string()}")
-                channel.peak_power_db = signal.peak_power_db
-                channel.peak_freq = signal.peak_freq
-                channel.peak_x = signal.x
-                channel.peak_y = signal.y
+            if channel.peak_power_db is None or float(signal.peak_power_db) >= float(channel.peak_power_db):
+                #print(f"Updating channel {channel.name} with signal {signal.to_string()}")
+                channel.peak_power_db = float(signal.peak_power_db)
+                channel.peak_freq = float(signal.peak_freq)
+                channel.peak_freq_start = float(signal.start_freq)
+                channel.peak_freq_end = float(signal.end_freq)
+                channel.peak_x = int(signal.x)
+                channel.peak_y = int(signal.y)
                 channel.calc_angle()
                 channel.position_history = signal.position_history
                 return
@@ -107,7 +109,7 @@ class ChannelList:
         for channel in self.channels.values():
             if channel.peak_power_db is not None:
                 #all channel data
-                s += f"{channel.name},{channel.peak_freq},{channel.peak_power_db},{channel.peak_x},{channel.peak_y},{channel.horizontal_angle},{channel.vertical_angle}\n"
+                s += f"{channel.name},{channel.peak_freq},{channel.peak_freq_start},{channel.peak_freq_end},{channel.peak_power_db},{channel.peak_x},{channel.peak_y},{channel.horizontal_angle},{channel.vertical_angle}\n"
         if len(s) > 0:
             return s
         else:
@@ -117,6 +119,8 @@ class ChannelList:
         for channel in self.channels.values():
             channel.peak_power_db = None
             channel.peak_freq = None
+            channel.peak_freq_start = None
+            channel.peak_freq_end = None
             channel.peak_x = None
             channel.peak_y = None
             channel.horizontal_angle = None
@@ -130,6 +134,8 @@ class Channel():
         self.end_freq = None
         
         self.peak_freq = None
+        self.peak_freq_start = None
+        self.peak_freq_end = None
         self.peak_power_db = None
         self.peak_x = None
         self.peak_y = None
@@ -791,6 +797,7 @@ class ESP32Controller:
 
                 if len(scan_data[0]) > 0:  # if we got signals on this scan
                     for signal in scan_data[0]:
+                        print(f"Signal strength: {signal.peak_power_db}")
                         self.active_channels.update_channels(signal)
 
             f.write(f'{time.strftime("%H_%M_%S")},{sweep_nr},{"H" if horizontal else "V"},{self.active_channels.to_csv_string_active_channels()}\n')
