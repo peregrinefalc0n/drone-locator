@@ -764,7 +764,6 @@ class ESP32Controller:
                 horizontal = False
             if sweep_nr >= 10:
                 #end as we have done 5 vertical and 5 horizontal sweeps
-                self.stop_everything = True
                 break
                 
             sweep_nr += 1
