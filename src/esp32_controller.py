@@ -91,6 +91,7 @@ class ChannelList:
         for channel in self.channels.values():
             if signal.start_freq >= channel.start_freq and signal.end_freq <= channel.end_freq:
                 if channel.peak_power_db is None or signal.peak_power_db >= channel.peak_power_db:
+                    print(f"Updating channel {channel.name} with signal {signal.to_string()}")
                     channel.peak_power_db = signal.peak_power_db
                     channel.peak_freq = signal.peak_freq
                     channel.peak_x = signal.x
