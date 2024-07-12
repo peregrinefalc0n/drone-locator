@@ -743,14 +743,9 @@ class ESP32Controller:
         #open a file to write logs to
         os.makedirs("TESTS", exist_ok=True)
         f = open(f'TESTS/TEST_time{time.strftime("%H_%M_%S")}_n{number_of_points}_distance{distance}_power{power}.csv', "w")
-        #f"{channel.name},{channel.peak_freq},{channel.peak_power_db},{channel.peak_x},{channel.peak_y},{channel.horizontal_angle},{channel.vertical_angle}\n"
         f.write("timestamp, testnumber, testtype, ch_name, ch_peak_freq, ch_peak_power_db, ch_peak_x, ch_peak_y, ch_horizontal_angle, ch_vertical_angle\n")
 
         while not self.stop_everything:  # continious sweeping
-            # for s in self.active_signals:
-            #    s.update_sweep_list()  # add an empty sweep list to populate in each signals history list
-            #    if not skip_first:
-            #        s.inc_sweep_id()  # increment the sweep id for each signal
             if sweep_nr < 5:
                 #do horizontal sweep
                 positions = self.__calculate_n_positions_over_section(x_section_start, x_section_end, number_of_points)
@@ -790,98 +785,15 @@ class ESP32Controller:
                     self.__move_to_and_wait_for_complete(2, position)
                 
                 scan_data = self.perform_scan(offset=10, show_graph=show_graph)
-                
-                # x,y,start_freq,end_freq,peak_freq,peak_power_db
-                x = self.CURRENT_POSITION_1
-                y = self.CURRENT_POSITION_2
-                # start_freq = scan_data[0][0].start_freq
-                # end_freq = scan_data[0][0].end_freq
-                # peak_freq = scan_data[0][0].peak_freq
-                # peak_power_db = scan_data[0][0].peak_power_db
+
                 if len(scan_data[0]) > 0:  # if we got signals on this scan
                     for signal in scan_data[0]:
                         self.active_channels.update_channels(signal)
-             
-                        print("Found signals:", len(scan_data[0]))
-                        if len(self.active_signals) == 0:
-                            signal.x = x
-                            signal.y = y
-                            self.active_signals.append(signal)
-                            # print(
-                            #    "[len(active signals) == 0] Added completely new signal to active signals",
-                            #    signal.to_string(),
-                            # )
-                            signal.update_sweep_list()
 
-                        # check if signal is already in active signals, if it is, update it
-                        this_signal_is_new = True
-                        for index, existing_signal in enumerate(self.active_signals):
-                            existing_signal.inc_sweep_id()
-                            if (
-                                self.__inRange(
-                                    signal.peak_freq,
-                                    existing_signal.peak_freq,
-                                    0.1,
-                                )
-                                and self.__inRange(
-                                    signal.start_freq,
-                                    existing_signal.start_freq,
-                                    0.1,
-                                )
-                                and self.__inRange(
-                                    signal.end_freq, existing_signal.end_freq, 0.1
-                                )
-                                # and self.__inRange(x, existing_signal.x, 10)
-                                # and self.__inRange(y, existing_signal.y, 10)
-                            ):
-                                # found existing signal
-                                this_signal_is_new = False
-
-                                # update this signal's position history
-                                if (
-                                    len(existing_signal.position_history)
-                                    < existing_signal.sweep_id + 1
-                                ):
-                                    existing_signal.update_sweep_list()
-
-                                existing_signal.position_history[
-                                    existing_signal.sweep_id
-                                ].append([x, y, signal.peak_power_db])
-
-                                # its not stronger, skip the recursive 8-point check
-                                if signal.peak_power_db < existing_signal.peak_power_db:
-                                    continue
-                                # its stronger, first check if an even stronger is nearby
-                                
-                                # print(
-                                #    "Found a stronger signal position: ",
-                                #    x_return,
-                                #    y_return,
-                                # )
-                                # update existing signal with new stronger signal position data
-                                existing_signal.x = self.CURRENT_POSITION_1
-                                existing_signal.y = self.CURRENT_POSITION_2
-                                existing_signal.peak_freq = signal.peak_freq
-                                existing_signal.peak_power_db = signal.peak_power_db
-                                existing_signal.start_freq = signal.start_freq
-                                existing_signal.end_freq = signal.end_freq
-                                # x,y,signal
-                                break
-                        if this_signal_is_new:
-                            signal.x = x
-                            signal.y = y
-                            self.active_signals.append(signal)
-                            # print(
-                            #    "Added new signal to active signals", signal.to_string()
-                            # )
-                            signal.update_sweep_list()
             f.write(f'{time.strftime("%H_%M_%S")},{sweep_nr},{"H" if horizontal else "V"},{self.active_channels.to_csv_string_active_channels()}\n')
+            #reset the active channels for the next sweep to start fresh
             self.active_channels.reset_channels()
-            # self.return_queue.put((signals, raw_data, telem1, telem2), block=False, timeout=0)
-            # print(len(signals), len(raw_data), len(telem1), len(telem2))
-            # while loop variables
             reverse = not reverse
-            #skip_first = True
         f.close()
         
         #for safety go to front position when all is done     
