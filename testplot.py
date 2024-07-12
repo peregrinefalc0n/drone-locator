@@ -34,5 +34,6 @@ def plot_data(filename):
     plt.show()
     
 if __name__ == "__main__":
-    plot_data("TESTS/TEST_time16_44_22_n50_distance5_power25.csv")
-    plot_data("TESTS/TEST_time18_33_51_n100_distance5_power25.csv")
+    #plot_data("TESTS/TEST_time16_44_22_n50_distance5_power25.csv") # 50 points bad (-20ish)
+    #plot_data("TESTS/TEST_time18_33_51_n100_distance5_power25.csv") # 100 points also bad result but all on left side (-20ish)
+    plot_data("TESTS/TEST_time18_45_01_n120_distance5_power25.csv") # 120 points great result
