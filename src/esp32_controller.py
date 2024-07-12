@@ -104,7 +104,7 @@ class ChannelList:
         for channel in self.channels.values():
             if channel.peak_power_db is not None:
                 #all channel data
-                s += f"{channel.name},{channel.peak_freq},{channel.peak_power_db},{channel.horizontal_angle},{channel.vertical_angle},"
+                s += f"{channel.name},{channel.peak_freq},{channel.peak_power_db},{channel.peak_x},{channel.peak_y},{channel.horizontal_angle},{channel.vertical_angle}\n"
         if len(s) > 0:
             return s
         else:
@@ -741,7 +741,8 @@ class ESP32Controller:
         #open a file to write logs to
         os.makedirs("TESTS", exist_ok=True)
         f = open(f'TESTS/TEST_time{time.strftime("%H_%M_%S")}_n{number_of_points}_distance{distance}_power{power}.csv', "w")
-        f.write("timestamp, testnumber, testtype,x,y,start_freq,end_freq,peak_freq,peak_power_db\n")
+        #f"{channel.name},{channel.peak_freq},{channel.peak_power_db},{channel.peak_x},{channel.peak_y},{channel.horizontal_angle},{channel.vertical_angle}\n"
+        f.write("timestamp, testnumber, testtype, ch_name, ch_peak_freq, ch_peak_power_db, ch_peak_x, ch_peak_y, ch_horizontal_angle, ch_vertical_angle\n")
 
         while not self.stop_everything:  # continious sweeping
             # for s in self.active_signals:
