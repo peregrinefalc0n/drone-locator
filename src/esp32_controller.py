@@ -141,11 +141,13 @@ class Channel():
     def calc_angle(self):
         # calculate the angle of the peak signal
         # if peak x is at 0 we are at -180 degrees, if peak x is at 4096 we are at 180 degrees, if peak x is at 2048 we are at 0 degrees
-        self.horizontal_angle = (self.peak_x - 2048) / 2048 * 180
+        if self.peak_x is not None:
+            self.horizontal_angle = (self.peak_x - 2048) / 2048 * 180
         
         # calculate the vertical angle of the peak signal
         #if y is at 1024 we are at 0 degrees, if y is at 2048 we are at 90 degrees...
-        self.vertical_angle = (self.peak_y - 1024) / 1024 * 90
+        if self.peak_y is not None:
+            self.vertical_angle = (self.peak_y - 1024) / 1024 * 90
 
 
  
