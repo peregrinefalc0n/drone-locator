@@ -12,11 +12,14 @@ if __name__ == "__main__":
     device.initialize()
 
     try:
-        while True:
-            device.horizontal_sweep_precise(show_graph=False, number_of_points=64, y_level=1050)
-            for i,signal in enumerate(device.active_signals):
-                print("Signal:", i, "Data:", signal.start_freq, signal.end_freq, signal.peak_power_db, signal.peak_freq)
-
+        print("START OF TEST")
+        p = input("Enter power: ")
+        d = input("Enter distance: ")
+        n = input("Enter number of points: ")
+        
+        device.section_TEST(power=p, distance=d, number_of_points=n, show_graph=False)
+        
+        print("END OF TEST")
 
     except KeyboardInterrupt:
         pass

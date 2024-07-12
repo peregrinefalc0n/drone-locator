@@ -278,6 +278,9 @@ class SignalProcessor:
                 signals_list.append(temp_signal)
             index += 1
 
+        for signal in signals_list:
+            calculate_signal_channel_if_only_A_exists(signal)
+
         return (signals_list, raw_data)
 
     def get_signals(self):
@@ -300,7 +303,7 @@ def calculate_signal_channel(signal:Signal):
     # if signals peak freq is exactly a channel center freq, assign the channel to that signal
     for channel, frequencies in channel_center_freq_list.items():
         for i, freq in enumerate(frequencies):
-            if round(signal.peak_freq, ndigits=None) == freq:
+            if round(signal.peak_freq) == freq:
                 signal.channel = f"{channel}{i+1}"
                 return True
 
@@ -315,6 +318,23 @@ def calculate_signal_channel(signal:Signal):
         return False
     
     return True
+
+def calculate_signal_channel_if_only_A_exists(signal:Signal):
+    a_channels = [
+        [5850, 5880],
+        [5830, 5860],
+        [5810, 5840],
+        [5790, 5820],
+        [5770, 5800],
+        [5750, 5780],
+        [5730, 5760],
+        [5710, 5740]]
+    
+    for freq_range in a_channels:
+        if signal.peak_freq >= freq_range[0] and signal.peak_freq <= freq_range[1]:
+            signal.channel = f"A{a_channels.index(freq_range) + 1}"
+            return True
+    
 
 
 if __name__ == "__main__":

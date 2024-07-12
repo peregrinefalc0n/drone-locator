@@ -1,3 +1,4 @@
+import os
 import time
 import serial
 import math
@@ -72,9 +73,7 @@ class ChannelList:
         [5730, 5760],
         [5710, 5740],
     ]
-
     a_centers = [5865, 5845, 5825, 5805, 5785, 5765, 5745, 5725]
-
 
     def __init__(self):
         self.channels = dict()
@@ -91,7 +90,7 @@ class ChannelList:
     def update_channels(self, signal : signal_processor.Signal):
         for channel in self.channels.values():
             if signal.start_freq >= channel.start_freq and signal.end_freq <= channel.end_freq:
-                if channel.peak_power_db is None or signal.peak_power_db > channel.peak_power_db:
+                if channel.peak_power_db is None or signal.peak_power_db >= channel.peak_power_db:
                     channel.peak_power_db = signal.peak_power_db
                     channel.peak_freq = signal.peak_freq
                     channel.peak_x = signal.x
@@ -99,8 +98,27 @@ class ChannelList:
                     channel.calc_angle()
                     channel.position_history = signal.position_history
                     return
-            
-
+    
+    def to_csv_string_active_channels(self):
+        for channel in self.channels.values():
+            if channel.peak_power_db is not None:
+                #all channel data
+                s += f"{channel.name},{channel.peak_freq},{channel.peak_power_db},{channel.horizontal_angle},{channel.vertical_angle},"
+        if s is not None:
+            return s
+        else:
+            return "No Data on this sweep."
+        
+    def reset_channels(self):
+        for channel in self.channels.values():
+            channel.peak_power_db = None
+            channel.peak_freq = None
+            channel.peak_x = None
+            channel.peak_y = None
+            channel.horizontal_angle = None
+            channel.vertical_angle = None
+            channel.position_history = []
+                
 class Channel():
     """Class which represents a channel on the spectrum."""
     def __init__(self, name):
@@ -125,11 +143,11 @@ class Channel():
         self.horizontal_angle = (self.peak_x - 2048) / 2048 * 180
         
         # calculate the vertical angle of the peak signal
-        #if y is at 1024 we are at 0 degrees, if y is at 2048 we are at 90 degrees, if y is at 700 we are at -30 degrees
+        #if y is at 1024 we are at 0 degrees, if y is at 2048 we are at 90 degrees...
         self.vertical_angle = (self.peak_y - 1024) / 1024 * 90
 
-    
 
+ 
 class ESP32Controller:
     """Class for communicating with ESP32 and controlling the connected servos."""
 
@@ -694,6 +712,179 @@ class ESP32Controller:
             raise stopEverything("User stopped infinite horizontal precise scan.")
 
 
+    def section_TEST(
+        self,
+        number_of_points,
+        distance,
+        power,
+        show_graph=False,
+    ):
+        """Perform a sweep scan with the specified number of points for both horizontal and vertical fault measurement."""
+        
+        #Scan a 45degree section of both horizontal and vertical axis        
+        x_section_start = 2048 - 256
+        x_section_end = 2048 + 256
+        y_section_start = 1024 - 256
+        y_section_end = 1024 + 256
+        
+        #for safety go to front position       
+        self.__move_to_and_wait_for_complete(servo_id=2, expected_pos=1024)
+        self.__move_to_and_wait_for_complete(servo_id=1, expected_pos=2048)
+        
+        sweep_nr = 0
+        reverse = False
+        skip_first = False
+        horizontal = False
+        vertical = False
+
+        #open a file to write logs to
+        os.makedirs("TESTS", exist_ok=True)
+        f = open(f"TESTS/TEST_time{time.strftime("%H_%M_%S")}_n{number_of_points}_distance{distance}_power{power}.csv", "w")
+        f.write("x,y,start_freq,end_freq,peak_freq,peak_power_db\n")
+
+        while not self.stop_everything:  # continious sweeping
+            # for s in self.active_signals:
+            #    s.update_sweep_list()  # add an empty sweep list to populate in each signals history list
+            #    if not skip_first:
+            #        s.inc_sweep_id()  # increment the sweep id for each signal
+            if sweep_nr < 5:
+                #do horizontal sweep
+                positions = self.__calculate_n_positions_over_section(x_section_start, x_section_end, number_of_points)
+                static_level = 1024
+                horizontal = True
+            if sweep_nr >= 5:
+                #do vertical sweep
+                positions = self.__calculate_n_positions_over_section(y_section_start, y_section_end, number_of_points)
+                static_level = 2048
+                vertical = True
+                horizontal = False
+            if sweep_nr >= 10:
+                #end as we have done 5 vertical and 5 horizontal sweeps
+                self.stop_everything = True
+                break
+                
+            sweep_nr += 1
+
+            for position in (
+                reversed(positions) if reverse else positions
+            ):  # reverse the sweep direction every time, to minimise unnecessary traversal
+                if skip_first:
+                    skip_first = False
+                    continue
+                
+                #little checks
+                if horizontal:
+                    if not self.__inRange(self.CURRENT_POSITION_2, static_level, 10):
+                        self.__move_to(2, static_level)
+                if vertical:
+                    if not self.__inRange(self.CURRENT_POSITION_1, static_level, 10):
+                        self.__move_to(1, static_level)
+                
+                #main move command
+                if horizontal:
+                    self.__move_to_and_wait_for_complete(1, position)
+                elif vertical:
+                    self.__move_to_and_wait_for_complete(2, position)
+                
+                scan_data = self.perform_scan(offset=10, show_graph=show_graph)
+                
+                # x,y,start_freq,end_freq,peak_freq,peak_power_db
+                x = self.CURRENT_POSITION_1
+                y = self.CURRENT_POSITION_2
+                # start_freq = scan_data[0][0].start_freq
+                # end_freq = scan_data[0][0].end_freq
+                # peak_freq = scan_data[0][0].peak_freq
+                # peak_power_db = scan_data[0][0].peak_power_db
+                if len(scan_data[0]) > 0:  # if we got signals on this scan
+                    for signal in scan_data[0]:
+                        self.active_channels.update_channels(signal)
+             
+                        # print("Found signals:", len(scan_data[0]))
+                        if len(self.active_signals) == 0:
+                            signal.x = x
+                            signal.y = y
+                            self.active_signals.append(signal)
+                            # print(
+                            #    "[len(active signals) == 0] Added completely new signal to active signals",
+                            #    signal.to_string(),
+                            # )
+                            signal.update_sweep_list()
+
+                        # check if signal is already in active signals, if it is, update it
+                        this_signal_is_new = True
+                        for index, existing_signal in enumerate(self.active_signals):
+                            existing_signal.inc_sweep_id()
+                            if (
+                                self.__inRange(
+                                    signal.peak_freq,
+                                    existing_signal.peak_freq,
+                                    0.1,
+                                )
+                                and self.__inRange(
+                                    signal.start_freq,
+                                    existing_signal.start_freq,
+                                    0.1,
+                                )
+                                and self.__inRange(
+                                    signal.end_freq, existing_signal.end_freq, 0.1
+                                )
+                                # and self.__inRange(x, existing_signal.x, 10)
+                                # and self.__inRange(y, existing_signal.y, 10)
+                            ):
+                                # found existing signal
+                                this_signal_is_new = False
+
+                                # update this signal's position history
+                                if (
+                                    len(existing_signal.position_history)
+                                    < existing_signal.sweep_id + 1
+                                ):
+                                    existing_signal.update_sweep_list()
+
+                                existing_signal.position_history[
+                                    existing_signal.sweep_id
+                                ].append([x, y, signal.peak_power_db])
+
+                                # its not stronger, skip the recursive 8-point check
+                                if signal.peak_power_db < existing_signal.peak_power_db:
+                                    continue
+                                # its stronger, first check if an even stronger is nearby
+                                
+                                # print(
+                                #    "Found a stronger signal position: ",
+                                #    x_return,
+                                #    y_return,
+                                # )
+                                # update existing signal with new stronger signal position data
+                                existing_signal.x = self.CURRENT_POSITION_1
+                                existing_signal.y = self.CURRENT_POSITION_2
+                                existing_signal.peak_freq = signal.peak_freq
+                                existing_signal.peak_power_db = signal.peak_power_db
+                                existing_signal.start_freq = signal.start_freq
+                                existing_signal.end_freq = signal.end_freq
+                                # x,y,signal
+                                break
+                        if this_signal_is_new:
+                            signal.x = x
+                            signal.y = y
+                            self.active_signals.append(signal)
+                            # print(
+                            #    "Added new signal to active signals", signal.to_string()
+                            # )
+                            signal.update_sweep_list()
+            f.write(f'{time.strftime("%H_%M_%S")},{sweep_nr},{"H" if horizontal else "V"},{self.active_channels.to_csv_string_active_channels()}\n')
+            self.active_channels.reset_channels()
+            # self.return_queue.put((signals, raw_data, telem1, telem2), block=False, timeout=0)
+            # print(len(signals), len(raw_data), len(telem1), len(telem2))
+            # while loop variables
+            reverse = not reverse
+            #skip_first = True
+        else:
+            f.close()
+            raise stopEverything("User stopped TEST.")
+        f.close()
+
+
     def find_strongest_point_of_signal(
         self,
         prev_x,
@@ -773,7 +964,7 @@ class ESP32Controller:
         self, offset=10, show_graph=False
     ) -> tuple[list[signal_processor.Signal], list, dict[str, int], dict[str, int]]:
         """Perform a scan at the current servo positions. \n
-        Returns any signals found + servo telemetry."""
+        Returns any signals found + servo telemetry for the GUI program to display."""
         telemetry_1 = self.get_telemetry(1)
         telemetry_2 = self.get_telemetry(2)
         # print("=====================================")
