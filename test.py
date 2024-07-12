@@ -22,7 +22,13 @@ if __name__ == "__main__":
         #A5 sits at 5785 and with a 20hmz bandwidth it goes from 5775 to 5795 thus is in the middle of the best range for our directional antenna
         #center is thus 5785mhz or 5.785ghz
         
+        #Set the frequency to 5.785ghz, enable amp and set lna 0 vga 16
+        device.sp.hackrf.center_freq = 5785e6
+        device.sp.hackrf.amplifier_on = True
+        device.sp.hackrf.lna_gain = 0
+        device.sp.hackrf.vga_gain = 16
         
+        #run test
         device.section_TEST(power=p, distance=d, number_of_points=int(n), show_graph=False)
         
         print("END OF TEST")
