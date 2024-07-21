@@ -1,0 +1,11 @@
+timestamp, testnumber, testtype, ch_name, ch_peak_freq, ch_peak_freq_start, ch_peak_freq_end, ch_peak_power_db, ch_peak_x, ch_peak_y, ch_horizontal_angle, ch_vertical_angle
+17_07_42,1,H,No Data on this sweep.
+17_07_54,2,H,No Data on this sweep.
+17_08_06,3,H,No Data on this sweep.
+17_08_18,4,H,No Data on this sweep.
+17_08_30,5,H,No Data on this sweep.
+17_08_43,6,V,No Data on this sweep.
+17_08_55,7,V,No Data on this sweep.
+17_09_07,8,V,No Data on this sweep.
+17_09_20,9,V,No Data on this sweep.
+17_09_32,10,V,No Data on this sweep.
