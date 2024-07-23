@@ -37,12 +37,12 @@ if __name__ == "__main__":
         device.sp.hackrf.vga_gain = 32 #TODO maybe revert back to 16
         
         
-        #increase sample count from 1e6 to more
+        #change sample count from 1e6 to more (or less)
         device.sp.hackrf._sample_count = 5e5
 
         
-        device.sp.hackrf.amplifier_on = True
-        device.sp.set_amplifier(True)
+        #device.sp.hackrf.amplifier_on = True
+        #device.sp.set_amplifier(True)
                 
         #run the test of five vertical sweeps and five horizontal sweeps
         device.section_TEST(power=p, distance=d, number_of_points=int(n), show_graph=False, file=f)
