@@ -33,16 +33,16 @@ if __name__ == "__main__":
         
         #Set the frequency to 5.785ghz, enable amp and set lna 0 vga 16
         device.sp.hackrf.center_freq = 5780e6
-        device.sp.hackrf.lna_gain = 8
-        device.sp.hackrf.vga_gain = 32 #TODO maybe revert back to 16
+        device.sp.hackrf.lna_gain = 40 #was 8 at best test so far
+        device.sp.hackrf.vga_gain = 8 #TODO maybe revert back to 16 (32 was best so far)
         
         
         #change sample count from 1e6 to more (or less)
         device.sp.hackrf._sample_count = 5e5
-
+        #5e5 is half of 1e6
         
-        #device.sp.hackrf.amplifier_on = True
-        #device.sp.set_amplifier(True)
+        device.sp.hackrf.amplifier_on = True
+        device.sp.set_amplifier(True)
                 
         #run the test of five vertical sweeps and five horizontal sweeps
         device.section_TEST(power=p, distance=d, number_of_points=int(n), show_graph=False, file=f)
