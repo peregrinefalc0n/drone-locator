@@ -432,7 +432,7 @@ class ESP32Controller:
         self.__move_to(servo_id, expected_pos)
         while True:
             current_pos = self.__get_position(servo_id)
-            if self.__inRange(current_pos, expected_pos, 20):
+            if self.__inRange(current_pos, expected_pos, 10):
                 break
 
     def __move_distance_and_wait_for_complete(self, servo_id, distance):
@@ -442,7 +442,7 @@ class ESP32Controller:
         self.__move_to(servo_id, expected_pos)
         while True:
             current_pos = self.__get_position(servo_id)
-            if self.__inRange(current_pos, expected_pos, 20):
+            if self.__inRange(current_pos, expected_pos, 10):
                 break
 
     def full_sweep_optimal(self, show_graph=False):
