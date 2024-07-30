@@ -234,8 +234,9 @@ def button_callback(sender, app_data, user_data):
         device.sp.hackrf.center_freq = device_center_frequency_from_gui
         device.sp.sample_count = device_sample_count_from_gui
         device.sp.hackrf.vga_gain = device_vga_gain_from_gui
-
-
+    elif sender == "clear_compass_button":
+        pass
+    
 def set_hackrf_id(sender):
     global hackrf_id
     hackrf_id = int(dpg.get_value(sender))
@@ -432,6 +433,12 @@ def draw_signals_on_compass():
 
         #TODO
         #remove old signal history lines
+        for pos, s in enumerate(channel.position_history):
+            if dpg.does_item_exist(f"signal_history_line_{channel.name}_{pos}"):
+                dpg.delete_item(f"signal_history_line_{channel.name}_{pos}")
+        
+        
+        
         #if (len(signal.position_history) > 2):
         #    for i, sweep in enumerate(signal.position_history):
         #        for j, position in enumerate(sweep):
@@ -442,28 +449,30 @@ def draw_signals_on_compass():
         # for this signal, also draw the last two sweeps worth of positions
         #print(len(signal.position_history), signal.position_history)      
         
-        for i, sweep in enumerate(channel.position_history):
-            for j, position in enumerate(sweep):
+        
+        
+        
+        for pos, s in enumerate(channel.position_history):
                 x_start = 400 + 200 * math.cos(
-                    (position[0] + offset) * 2 * math.pi / 4096
+                    (s[0] + offset) * 2 * math.pi / 4096
                 )
                 y_start = 300 + 200 * math.sin(
-                    (position[0] + offset) * 2 * math.pi / 4096
+                    (s[0] + offset) * 2 * math.pi / 4096
                 )
-                length_h = 50 * (position[2] + 60) // 75
+                length_h = 50 * (s[2] + 60) // 75
 
                 x_end = x_start + length_h * math.cos(
-                    (position[0] + offset) * 2 * math.pi / 4096
+                    (s[0] + offset) * 2 * math.pi / 4096
                 )
                 y_end = y_start + length_h * math.sin(
-                    (position[0] + offset) * 2 * math.pi / 4096
+                    (s[0] + offset) * 2 * math.pi / 4096
                 )
 
-                if not dpg.does_item_exist(f"signal_history_line_{sid}_{i}_{j}"):
+                if not dpg.does_item_exist(f"signal_history_line_{channel.name}_{pos}"):
                     dpg.draw_line(
                         p1=(x_start, y_start),
                         p2=(x_end, y_end),
-                        tag=f"signal_history_line_{sid}_{i}_{j}",
+                        tag=f"signal_history_line_{channel.name}_{pos}",
                         color=signal_color,
                         thickness=1,
                         parent="compass_drawlist",
@@ -748,7 +757,7 @@ def gui():
                 dpg.add_input_int(
                     label="Center frequency (MHz)",
                     tag="center_frequency_input",
-                    default_value=5772,
+                    default_value=5780,
                     min_value=5718,
                     max_value=5840,
                     step=1,
@@ -770,7 +779,7 @@ def gui():
                 dpg.add_input_int(
                     label="Sample count",
                     tag="sample_count_input",
-                    default_value=1000000,
+                    default_value=100000,
                     min_value=1000,
                     max_value=10000000,
                     width=150,
@@ -970,10 +979,7 @@ def gui():
                 dpg.add_text("Console log", tag="console_row_1")
 
         with dpg.group(horizontal=True):
-            dpg.add_button(label="Footer 1", width=175)
-            dpg.add_text("Footer 2")
-            dpg.add_button(label="Footer 3", width=175)
-            dpg.add_text("Footer 4")
+            dpg.add_button(label="Clear Compass", width=175, tag="clear_compass_button", callback=button_callback, enabled=True)
 
     dpg.setup_dearpygui()
     dpg.show_viewport()

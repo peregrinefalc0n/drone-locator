@@ -98,9 +98,8 @@ class ChannelList:
                 channel.peak_x = int(signal.x)
                 channel.peak_y = int(signal.y)
                 channel.calc_angle()
-                #TODO add position history to channel
-            channel.position_history.append(signal.position_history)
-            return
+            #TODO add position history to channel
+            channel.position_history.append([int(signal.x), int(signal.y), float(signal.peak_power_db)])
         except KeyError:
             print(f"Signal {signal.to_string()} is not within any channel range.")
             return
@@ -599,6 +598,7 @@ class ESP32Controller:
             # while loop variables
             reverse = not reverse
             skip_first = True
+            self.active_channels.reset_history()
         else:
             raise stopEverything("User stopped infinite horizontal precise scan.")
 
@@ -720,7 +720,7 @@ class ESP32Controller:
                             #    "Added new signal to active signals", signal.to_string()
                             # )
                             signal.update_sweep_list()
-                self.active_channels.reset_history()
+            self.active_channels.reset_history()
             # self.return_queue.put((signals, raw_data, telem1, telem2), block=False, timeout=0)
             # print(len(signals), len(raw_data), len(telem1), len(telem2))
             # while loop variables
