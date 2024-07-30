@@ -98,8 +98,9 @@ class ChannelList:
                 channel.peak_x = int(signal.x)
                 channel.peak_y = int(signal.y)
                 channel.calc_angle()
-                channel.position_history = signal.position_history
-                return
+                #TODO add position history to channel
+            channel.position_history.append(signal.position_history)
+            return
         except KeyError:
             print(f"Signal {signal.to_string()} is not within any channel range.")
             return
@@ -125,6 +126,10 @@ class ChannelList:
             channel.peak_y = None
             channel.horizontal_angle = None
             channel.vertical_angle = None
+            channel.position_history = []
+
+    def reset_history(self):
+        for channel in self.channels.values():
             channel.position_history = []
                 
 class Channel():
@@ -715,6 +720,7 @@ class ESP32Controller:
                             #    "Added new signal to active signals", signal.to_string()
                             # )
                             signal.update_sweep_list()
+                self.active_channels.reset_history()
             # self.return_queue.put((signals, raw_data, telem1, telem2), block=False, timeout=0)
             # print(len(signals), len(raw_data), len(telem1), len(telem2))
             # while loop variables
