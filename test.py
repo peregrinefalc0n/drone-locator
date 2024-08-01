@@ -26,7 +26,7 @@ if __name__ == "__main__":
         
         input("Press enter to start test!")
         
-        print(f"START OF TEST WITH POWER: {p}mw, DISTANCE: {d}m, NUMBER OF POINTS: {n}")
+        print(f"START OF TEST WITH POWER: {p}mw, DISTANCE: {d}m, NUMBER OF POINTS: {n}, resolution: {90//n}°")
         
         #5760 - 5810 is best for antenna
         #A5 sits at 5785 and with a 20hmz bandwidth it goes from 5775 to 5795 thus is in the middle of the best range for our directional antenna
