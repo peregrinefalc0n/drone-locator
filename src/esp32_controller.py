@@ -740,9 +740,9 @@ class ESP32Controller:
     ):
         """Perform a sweep scan with the specified number of points for both horizontal and vertical fault measurement."""
         
-        #Scan a 45degree section of both horizontal and vertical axis        
-        x_section_start = 2048 - 256
-        x_section_end = 2048 + 256
+        #Scan a 90 degree section of horizontal and 45 degree section of vertical axis        
+        x_section_start = 2048 - 512
+        x_section_end = 2048 + 512
         y_section_start = 1024 - 256
         y_section_end = 1024 + 256
         
@@ -760,19 +760,20 @@ class ESP32Controller:
         file.write("timestamp, testnumber, testtype, ch_name, ch_peak_freq, ch_peak_freq_start, ch_peak_freq_end, ch_peak_power_db, ch_peak_x, ch_peak_y, ch_horizontal_angle, ch_vertical_angle\n")
 
         while not self.stop_everything:  # continious sweeping
-            if sweep_nr < 5:
+            print(f"Starting sweep {sweep_nr}.")
+            if sweep_nr < 10:
                 #do horizontal sweep
                 positions = self.__calculate_n_positions_over_section(x_section_start, x_section_end, number_of_points)
                 static_level = 1024
                 horizontal = True
-            if sweep_nr >= 5:
+            if sweep_nr >= 10:
                 #do vertical sweep
                 positions = self.__calculate_n_positions_over_section(y_section_start, y_section_end, number_of_points)
                 static_level = 2048
                 vertical = True
                 horizontal = False
-            if sweep_nr >= 10:
-                #end as we have done 5 vertical and 5 horizontal sweeps
+            if sweep_nr >= 20:
+                #end as we have done 10 vertical and 10 horizontal sweeps
                 break
                 
             sweep_nr += 1
@@ -808,6 +809,82 @@ class ESP32Controller:
             #reset the active channels for the next sweep to start fresh
             self.active_channels.reset_channels()
             reverse = not reverse
+        file.close()
+        
+        #for safety go to front position when all is done     
+        self.__move_to_and_wait_for_complete(servo_id=2, expected_pos=1024)
+        self.__move_to_and_wait_for_complete(servo_id=1, expected_pos=2048)
+    
+    def section_TEST_TWO_POINTS(
+        self,
+        number_of_points,
+        distance,
+        power,
+        file,
+        show_graph=False,
+    ):
+        """Perform a sweep scan with the specified number of points for both horizontal and vertical fault measurement."""
+        
+        #Scan 90 degrees left and 90 degrees right of the front position      
+        first_section_start = 1024
+        first_section_end = 2048
+        second_section_start = 2048
+        second_section_end = 3072
+        
+        #for safety go to front position       
+        self.__move_to_and_wait_for_complete(servo_id=2, expected_pos=1024)
+        self.__move_to_and_wait_for_complete(servo_id=1, expected_pos=2048)
+        
+        sweep_nr = 0
+        reverse = False
+        point_nr = 1
+
+        #open a file to write logs to
+        file.write("timestamp, testnumber, testtype, ch_name, ch_peak_freq, ch_peak_freq_start, ch_peak_freq_end, ch_peak_power_db, ch_peak_x, ch_peak_y, ch_horizontal_angle, ch_vertical_angle\n")
+
+        while not self.stop_everything:  # continious sweeping
+            print(f"Starting sweep {sweep_nr}.")
+            if sweep_nr < 10:
+                #do FIRST horizontal sweeps
+                positions = self.__calculate_n_positions_over_section(first_section_start, first_section_end, number_of_points)
+                static_level = 1024
+                point_nr = 1
+            if sweep_nr >= 10:
+                #do SECOND horizontal sweeps
+                input("Move the drone to the second point and press enter to continue scanning.")
+                positions = self.__calculate_n_positions_over_section(second_section_start, second_section_end, number_of_points)
+                static_level = 1024
+                point_nr = 2
+            if sweep_nr >= 20:
+                #end as we have done 10 + 10 sweeps
+                print(f"Completed sweeps 0 - {sweep_nr - 1}.")
+                break
+                
+            sweep_nr += 1
+
+            for position in (
+                reversed(positions) if reverse else positions
+            ):  # reverse the sweep direction every time, to minimise unnecessary traversal
+                
+                #little checks
+                if not self.__inRange(self.CURRENT_POSITION_2, static_level, 10):
+                        self.__move_to(2, static_level)
+
+                #main move command
+                self.__move_to_and_wait_for_complete(1, position)
+                
+                scan_data = self.perform_scan(offset=10, show_graph=show_graph)
+
+                if len(scan_data[0]) > 0:  # if we got signals on this scan
+                    for signal in scan_data[0]:
+                        self.active_channels.update_channels(signal)
+
+            file.write(f'{time.strftime("%H_%M_%S")},{sweep_nr},{"FIRST" if point_nr == 1 else "SECOND"},{self.active_channels.to_csv_string_active_channels()}\n')
+            #reset the active channels for the next sweep to start fresh
+            self.active_channels.reset_channels()
+            reverse = not reverse
+        
+        #Post break stuff
         file.close()
         
         #for safety go to front position when all is done     

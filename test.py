@@ -4,7 +4,7 @@ import os, time
 
 import dearpygui.dearpygui as dpg
 
-from testplot import plot_data
+from testplot import plot_data, plot_data_two_horizontals
 
 if __name__ == "__main__":
     device = esp32_controller.ESP32Controller()
@@ -15,7 +15,8 @@ if __name__ == "__main__":
     try:
         p = input("Enter power: ")
         d = input("Enter distance: ")
-        n = input("Enter number of points: ")
+        #n = input("Enter number of points: ")
+        n = 1000
         t = time.strftime("%H_%M_%S")
         filename = f'TESTS_inc_sample_count/TEST_time{t}_n{n}_distance{d}_power{p}.csv'
         
@@ -33,8 +34,8 @@ if __name__ == "__main__":
         
         #Set the frequency to 5.785ghz, enable amp and set lna 0 vga 16
         device.sp.hackrf.center_freq = 5780e6
-        device.sp.hackrf.lna_gain = 40 #was 8 at best test so far
-        device.sp.hackrf.vga_gain = 8 #TODO maybe revert back to 16 (32 was best so far)
+        device.sp.hackrf.lna_gain = 32 #was 8 at best test so far
+        device.sp.hackrf.vga_gain = 16 #TODO maybe revert back to 16 (32 was best so far)
         
         
         #change sample count from 1e6 to more (or less)
@@ -45,11 +46,11 @@ if __name__ == "__main__":
         device.sp.set_amplifier(True)
                 
         #run the test of five vertical sweeps and five horizontal sweeps
-        device.section_TEST(power=p, distance=d, number_of_points=int(n), show_graph=False, file=f)
+        device.section_TEST_TWO_POINTS(power=p, distance=d, number_of_points=int(n), show_graph=False, file=f)
         
         print("END OF TEST")
         
-        plot_data(filename)
+        plot_data_two_horizontals(filename)
 
     except KeyboardInterrupt:
         pass
