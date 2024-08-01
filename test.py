@@ -16,9 +16,9 @@ if __name__ == "__main__":
         p = input("Enter power: ")
         d = input("Enter distance: ")
         #n = input("Enter number of points: ")
-        n = 1000
+        n = 180
         t = time.strftime("%H_%M_%S")
-        filename = f'TESTS_inc_sample_count/TEST_time{t}_n{n}_distance{d}_power{p}.csv'
+        filename = f'TESTS_MAIN/TEST_time{t}_npoints{n}_distance{d}_power{p}.csv'
         
         os.makedirs("TESTS", exist_ok=True)
         f = open(filename, "w")
@@ -34,8 +34,8 @@ if __name__ == "__main__":
         
         #Set the frequency to 5.785ghz, enable amp and set lna 0 vga 16
         device.sp.hackrf.center_freq = 5780e6
-        device.sp.hackrf.lna_gain = 32 #was 8 at best test so far
-        device.sp.hackrf.vga_gain = 16 #TODO maybe revert back to 16 (32 was best so far)
+        device.sp.hackrf.lna_gain = 16 #was 8 at best test so far
+        device.sp.hackrf.vga_gain = 32 #TODO maybe revert back to 16 (32 was best so far)
         
         
         #change sample count from 1e6 to more (or less)

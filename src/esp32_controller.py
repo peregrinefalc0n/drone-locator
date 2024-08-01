@@ -834,6 +834,8 @@ class ESP32Controller:
         #for safety go to front position       
         self.__move_to_and_wait_for_complete(servo_id=2, expected_pos=1024)
         self.__move_to_and_wait_for_complete(servo_id=1, expected_pos=2048)
+
+        input("Move the drone to the first point and press enter to continue scanning.")
         
         sweep_nr = 0
         reverse = False
@@ -852,6 +854,8 @@ class ESP32Controller:
             if sweep_nr >= 10:
                 #do SECOND horizontal sweeps
                 input("Move the drone to the second point and press enter to continue scanning.")
+                self.active_channels.reset_channels()
+                self.active_signals = []
                 positions = self.__calculate_n_positions_over_section(second_section_start, second_section_end, number_of_points)
                 static_level = 1024
                 point_nr = 2
