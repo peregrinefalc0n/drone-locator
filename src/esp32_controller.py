@@ -846,6 +846,10 @@ class ESP32Controller:
 
         while not self.stop_everything:  # continious sweeping
             print(f"Starting sweep {sweep_nr}.")
+            
+            if sweep_nr == 10:
+                input("Move the drone to the second point and press enter to continue scanning.")
+            
             if sweep_nr < 10:
                 #do FIRST horizontal sweeps
                 positions = self.__calculate_n_positions_over_section(first_section_start, first_section_end, number_of_points)
@@ -853,7 +857,6 @@ class ESP32Controller:
                 point_nr = 1
             if sweep_nr >= 10:
                 #do SECOND horizontal sweeps
-                input("Move the drone to the second point and press enter to continue scanning.")
                 self.active_channels.reset_channels()
                 self.active_signals = []
                 positions = self.__calculate_n_positions_over_section(second_section_start, second_section_end, number_of_points)
