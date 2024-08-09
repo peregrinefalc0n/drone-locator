@@ -825,11 +825,11 @@ class ESP32Controller:
     ):
         """Perform a sweep scan with the specified number of points for both horizontal and vertical fault measurement."""
         
-        #Scan 90 degrees left and 90 degrees right of the front position      
-        first_section_start = 1024
+        #Scan 45 degrees left and 45 degrees right of the front position      
+        first_section_start = 1024 + 512
         first_section_end = 2048
         second_section_start = 2048
-        second_section_end = 3072
+        second_section_end = 3072 - 512
         
         #for safety go to front position       
         self.__move_to_and_wait_for_complete(servo_id=2, expected_pos=1024)

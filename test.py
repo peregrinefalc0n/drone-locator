@@ -35,7 +35,7 @@ if __name__ == "__main__":
         
         #Set the frequency to 5.785ghz, enable amp and set lna 0 vga 16
         device.sp.hackrf.center_freq = 5780e6
-        device.sp.hackrf.lna_gain = 16 #was 8 at best test so far
+        device.sp.hackrf.lna_gain = 24 #was 8 at best test so far
         device.sp.hackrf.vga_gain = 32 #TODO maybe revert back to 16 (32 was best so far)
         
         
