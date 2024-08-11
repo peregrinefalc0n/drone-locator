@@ -825,11 +825,11 @@ class ESP32Controller:
     ):
         """Perform a sweep scan with the specified number of points for both horizontal and vertical fault measurement."""
         
-        #Scan 45 degrees left and 45 degrees right of the front position      
-        first_section_start = 1024 + 512
+        #Scan 45 degrees left and 22.5 degrees right of the front position      
+        first_section_start = 2048 - 256         #512 + 256
         first_section_end = 2048
         second_section_start = 2048
-        second_section_end = 3072 - 512
+        second_section_end = 2048 + 256        #3072 - 512 + 256
         
         #for safety go to front position       
         self.__move_to_and_wait_for_complete(servo_id=2, expected_pos=1024)
@@ -838,6 +838,7 @@ class ESP32Controller:
         input("Move the drone to the first point and press enter to continue scanning.")
         
         sweep_nr = 0
+        #max_sweeps = int(input("enter sum of measurements"))
         reverse = False
         point_nr = 1
 
@@ -846,6 +847,8 @@ class ESP32Controller:
 
         while not self.stop_everything:  # continious sweeping
             print(f"Starting sweep {sweep_nr}.")
+            
+            
             
             if sweep_nr == 10:
                 input("Move the drone to the second point and press enter to continue scanning.")

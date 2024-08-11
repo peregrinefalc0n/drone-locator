@@ -221,8 +221,8 @@ class SignalProcessor:
         raw_data = [pxx, freqs]
 
         level_of_interest_db = 0.0
-        level_of_interest_db_max = -45.0
-        level_of_interest_db_min = -55.0
+        level_of_interest_db_max = -35.0
+        level_of_interest_db_min = -50.0
 
         # Set the level of interest to the minimum power + offset
         if self.manual_offset_in_use:

@@ -16,7 +16,7 @@ if __name__ == "__main__":
         p = input("Enter power: ")
         d = input("Enter distance: ")
         #n = input("Enter number of points: ")
-        n = 180
+        n = 90
         t = time.strftime("%H_%M_%S")
         filename = f'TESTS_MAIN/TEST_time{t}_npoints{n}_distance{d}_power{p}.csv'
         
@@ -26,7 +26,7 @@ if __name__ == "__main__":
         
         input("Press enter to start test!")
         
-        print(f"START OF TEST WITH POWER: {p}mw, DISTANCE: {d}m, NUMBER OF POINTS: {n}, resolution: {90/n}°")
+        print(f"START OF TEST WITH POWER: {p}mw, DISTANCE: {d}m, NUMBER OF POINTS: {n}, resolution: {22.5/n}°")
         
         #5760 - 5810 is best for antenna
         #A5 sits at 5785 and with a 20hmz bandwidth it goes from 5775 to 5795 thus is in the middle of the best range for our directional antenna
@@ -36,7 +36,7 @@ if __name__ == "__main__":
         #Set the frequency to 5.785ghz, enable amp and set lna 0 vga 16
         device.sp.hackrf.center_freq = 5780e6
         device.sp.hackrf.lna_gain = 24 #was 8 at best test so far
-        device.sp.hackrf.vga_gain = 32 #TODO maybe revert back to 16 (32 was best so far)
+        device.sp.hackrf.vga_gain = 24 #TODO maybe revert back to 16 (32 was best so far)
         
         
         #change sample count from 1e6 to more (or less)
